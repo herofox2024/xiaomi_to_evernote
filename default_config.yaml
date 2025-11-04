@@ -1,0 +1,10 @@
+export:
+  chunk_size: 25
+  enable_progress_bar: true
+  max_retries: 3
+  max_workers: 4
+  output_dir: config_output
+  timeout: 45
+logging:
+  log_file: example.log
+  log_level: DEBUG

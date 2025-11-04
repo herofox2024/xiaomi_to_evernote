@@ -1,152 +1,230 @@
-# xiaomi_to_evernote
-# 小米笔记导出工具
+# 小米笔记导出工具 - 优化版本
 
-一个用于将小米云笔记导出为 Evernote 格式 (.enex) 的 Python 工具，方便将笔记迁移到其他笔记应用。
+## 主要改进
 
-## 功能特性
+### 1. 完善的错误处理和异常管理
+- **自定义异常类**: `ValidationError`, `NetworkError` 等专门处理特定类型的错误
+- **详细的错误日志**: 每个操作都有对应的日志记录
+- **优雅的错误恢复**: 网络请求失败时自动重试机制
+- **分类异常处理**: 不同类型的错误有不同的处理策略
 
-- ✅ 导出小米云笔记为 Evernote 格式 (.enex)
-- ✅ 支持分批导出，避免导入时文件过大
-- ✅ 保留图片、复选框、字体样式等格式
-- ✅ 自动处理 XML 特殊字符
-- ✅ 支持多个文件夹分类导出
+### 2. 配置管理系统
+- **配置文件支持**: 支持 YAML 格式的配置文件
+- **命令行参数覆盖**: 命令行参数可以覆盖配置文件中的设置
+- **配置验证**: 启动时自动验证配置的有效性
+- **默认配置**: 提供合理的默认配置
 
-## 支持的内容格式
+### 3. 专业的日志系统
+- **多级别日志**: DEBUG, INFO, WARNING, ERROR 级别
+- **多输出目标**: 同时支持控制台和文件输出
+- **结构化日志**: 统一的日志格式，便于分析
+- **日志轮转**: 支持日志文件管理
 
-- ✅ 文本内容
-- ✅ 图片（手机上传、手写）
-- ✅ 复选框
-- ✅ 字体样式（加粗、斜体、下划线）
-- ✅ 字体大小
-- ✅ 背景高亮
-- ✅ 删除线
+### 4. 代码结构优化
+- **模块化设计**: 将功能分离到不同的类和方法中
+- **单一职责**: 每个方法只负责一个具体功能
+- **可测试性**: 代码结构更适合单元测试
+- **可维护性**: 清晰的代码组织，便于维护和扩展
 
-## 系统要求
+### 5. 完善的类型提示
+- **类型定义**: 使用 `TypedDict` 定义数据结构
+- **参数类型**: 所有函数参数和返回值都有类型提示
+- **类型安全**: 编译时就能发现类型错误
+- **开发体验**: IDE 支持更好，代码提示更准确
 
-- Python 3.6+
-- 网络连接（用于访问小米云服务）
-- 有效的小米账号
+### 6. 性能优化
+- **并发下载**: 使用线程池并发下载资源文件
+- **批量处理**: 优化了资源下载的批量处理逻辑
+- **内存管理**: 更好的内存使用，避免大文件占用过多内存
+- **进度显示**: 实时进度显示，用户体验更好
 
-## 安装依赖
+### 7. 安全性改进
+- **输入验证**: 对 cookies 和用户输入进行严格验证
+- **文件名清理**: 自动清理文件名中的非法字符
+- **XML 安全**: 防止 XML 注入攻击
+- **错误信息**: 避免在错误信息中泄露敏感信息
 
-```bash
-pip install requests pillow
-```
+### 8. 用户体验改进
+- **进度条**: 支持 tqdm 进度条显示
+- **详细反馈**: 每个操作都有清晰的反馈信息
+- **配置向导**: 一键生成默认配置文件
+- **中断处理**: 优雅处理用户中断操作
 
 ## 使用方法
 
-### 1. 获取 Cookies
-
-首先需要获取小米云笔记的登录 cookies：
-
-1. 在 Chrome 浏览器中登录：https://i.mi.com/note/h5#/
-2. 按 F12 打开开发者工具
-3. 切换到 Console (控制台) 标签
-4. 输入以下命令并复制输出结果：
-```javascript
-document.cookie
+### 1. 基本使用
+```bash
+python xiaomi_note_exporter_optimized.py --cookies "your_cookies_string"
 ```
 
-### 2. 运行导出工具
-
-#### 基本用法：
+### 2. 使用配置文件
 ```bash
-python xiaomi_to_evernote.py --cookies "你的cookies字符串"
-```
+# 先创建默认配置文件
+python xiaomi_note_exporter_optimized.py --create-config
 
-#### 自定义分批大小：
-```bash
-python xiaomi_to_evernote.py --cookies "cookies" --chunk-size 30
-```
+# 编辑 config.yaml 文件设置参数
 
-#### 自定义输出目录：
-```bash
-python xiaomi_to_evernote.py --cookies "cookies" --output-dir "我的笔记"
-```
-
-#### 交互式输入 cookies：
-```bash
-python xiaomi_to_evernote.py
+# 使用配置文件
+python xiaomi_note_exporter_optimized.py --cookies "your_cookies_string"
 ```
 
 ### 3. 命令行参数
-
-| 参数 | 简写 | 默认值 | 说明 |
-|------|------|--------|------|
-| `--cookies` | `-c` | 无 | 小米云笔记的 cookies 字符串 |
-| `--chunk-size` | `-s` | 50 | 每批导出的笔记数量 |
-| `--output-dir` | `-o` | exported_notes | 输出文件目录 |
-
-## 输出文件
-
-导出的文件将保存在指定的输出目录中，格式为：
-
-- `文件夹名称.enex` - 如果笔记数量小于分块大小
-- `文件夹名称_part01.enex` - 分批导出的文件
-- `文件夹名称_part02.enex` - 后续分块文件
-
-## 导入到其他笔记应用
-
-### 导入到 Obsidian
-
-1. 安装 Obsidian Importer 插件
-2. 使用插件导入 `.enex` 文件
-3. **建议**：分批导入，每次导入一个分块文件
-
-### 导入到 Evernote/印象笔记
-
-1. 直接导入 `.enex` 文件
-2. 文件 → 导入 → Evernote 导出文件 (.enex)
-
-### 使用 Yarle 转换（推荐）
-
-对于更好的 Obsidian 兼容性，建议使用 Yarle 工具：
-
 ```bash
-# 安装 Yarle
-npm install -g yarle
-
-# 转换 .enex 文件
-yarle --input 导出的enex文件 --output 输出文件夹
+python xiaomi_note_exporter_optimized.py \
+  --cookies "your_cookies_string" \
+  --chunk-size 30 \
+  --output-dir "my_notes" \
+  --timeout 60 \
+  --max-workers 8 \
+  --log-level DEBUG \
+  --no-progress
 ```
+
+### 4. 获取 cookies
+程序会自动提示如何从浏览器获取 cookies，或者运行：
+```bash
+python xiaomi_note_exporter_optimized.py --cookies ""
+```
+
+## 配置文件说明
+
+详细配置选项请参考 `config.yaml` 文件。主要配置项包括：
+
+- `export.chunk_size`: 每批导出的笔记数量
+- `export.output_dir`: 输出目录
+- `export.timeout`: 请求超时时间
+- `export.max_workers`: 并发下载线程数
+- `logging.log_level`: 日志级别
+- `logging.log_file`: 日志文件路径
+
+## 依赖要求
+
+### 必需依赖
+- `requests`: HTTP 请求库
+- `PyYAML`: YAML 配置文件支持
+
+### 可选依赖
+- `Pillow`: 图片尺寸检测（如果未安装会自动跳过）
+- `tqdm`: 进度条显示（如果未安装会使用简单进度显示）
+
+### 安装依赖
+```bash
+pip install requests PyYAML Pillow tqdm
+```
+
+## 错误处理
+
+优化版本提供了更详细的错误信息：
+
+- **网络错误**: 自动重试机制，详细的网络错误日志
+- **认证错误**: 清晰的 cookies 验证和错误提示
+- **文件错误**: 文件权限、磁盘空间等问题的处理
+- **数据错误**: JSON 解析、XML 处理等错误的详细日志
+
+## 日志系统
+
+### 日志级别
+- `DEBUG`: 详细的调试信息
+- `INFO`: 一般信息（默认）
+- `WARNING`: 警告信息
+- `ERROR`: 错误信息
+
+### 日志输出
+- **控制台**: 实时显示运行状态
+- **文件**: 可选的日志文件记录（通过 `log_file` 配置）
+
+### 日志格式
+```
+2025-11-04 08:42:57 - __main__ - INFO - 开始导出小米笔记...
+2025-11-04 08:42:58 - __main__ - INFO - 已设置 5 个cookies
+2025-11-04 08:43:01 - __main__ - INFO - 登录状态检查成功
+```
+
+## 性能优化
+
+### 并发下载
+- 使用 `ThreadPoolExecutor` 并发下载图片等资源
+- 可配置的工作线程数（默认 5 个）
+- 自动错误恢复和重试机制
+
+### 内存优化
+- 分批处理大量笔记，避免内存溢出
+- 及时释放不需要的资源
+- 优化 XML 文档的创建和保存
+
+### 进度显示
+- 实时进度条显示
+- 详细的处理状态反馈
+- 支持禁用进度条（`--no-progress`）
+
+## 安全性
+
+### 输入验证
+- Cookies 格式验证
+- 文件名安全清理
+- XML 内容转义
+
+### 错误处理
+- 不在错误信息中暴露敏感数据
+- 安全的异常处理机制
+- 详细的调试日志（可选）
 
 ## 故障排除
 
 ### 常见问题
 
-1. **401 未授权错误**
+1. **登录失败**
    - 检查 cookies 是否有效
-   - 重新登录小米云笔记获取新的 cookies
+   - 确认网络连接正常
+   - 查看详细错误日志
 
-2. **导入 Obsidian 时内容不全**
-   - 减小 `--chunk-size` 参数（建议 30-50）
-   - 使用 Yarle 工具进行转换
+2. **下载失败**
+   - 检查网络连接
+   - 增加超时时间
+   - 降低并发线程数
 
-3. **图片导出失败**
-   - 确保网络连接稳定
-   - 检查 PIL/Pillow 库是否正确安装
+3. **文件保存失败**
+   - 检查输出目录权限
+   - 确认磁盘空间充足
+   - 清理文件名中的特殊字符
 
-### 错误信息
+4. **内存不足**
+   - 减小分批大小
+   - 关闭其他占用内存的程序
+   - 使用更小的并发线程数
 
-- `401 Client Error: Unauthorized` - Cookies 无效或已过期
-- `ModuleNotFoundError: No module named 'PIL'` - 需要安装 Pillow 库
-- `ConnectionError` - 网络连接问题
+### 调试模式
+```bash
+python xiaomi_note_exporter_optimized.py --cookies "your_cookies" --log-level DEBUG
+```
 
-## 技术细节
+## 贡献指南
 
-- 使用 `requests.Session` 保持会话状态
-- 递归分页获取所有笔记（每页200条）
-- 自动处理时间戳格式转换
-- 使用 XML ElementTree 生成标准 Evernote 格式
+欢迎提交 Issue 和 Pull Request 来改进这个工具！
+
+### 开发环境设置
+```bash
+git clone <repository>
+cd xiaomi-note-exporter
+pip install -r requirements.txt
+```
+
+### 代码规范
+- 遵循 PEP 8 代码规范
+- 添加适当的类型提示
+- 编写单元测试
+- 更新文档
 
 ## 许可证
 
-MIT License
+本项目采用 MIT 许可证。详见 LICENSE 文件。
 
-## 贡献
+## 更新日志
 
-欢迎提交 Issue 和 Pull Request！
-
-## 免责声明
-
-本工具仅用于个人数据迁移目的，请遵守小米云服务的使用条款。使用者应对自己的行为负责，作者不承担任何责任。
+### v2.0.0 (2025-11-04)
+- 完整的重构和优化
+- 添加配置管理系统
+- 改进错误处理和日志系统
+- 性能优化和并发支持
+- 安全性改进
+- 用户体验提升

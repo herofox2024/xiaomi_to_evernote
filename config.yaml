@@ -1,0 +1,39 @@
+# 小米笔记导出工具配置文件
+# 优化版本配置示例
+
+export:
+  # 每批导出的笔记数量 (默认: 50)
+  chunk_size: 50
+  
+  # 输出目录 (默认: exported_notes)
+  output_dir: "exported_notes"
+  
+  # 请求超时时间（秒） (默认: 30)
+  timeout: 30
+  
+  # 最大重试次数 (默认: 3)
+  max_retries: 3
+  
+  # 并发下载工作线程数 (默认: 5)
+  max_workers: 5
+  
+  # 是否启用进度条 (默认: true)
+  enable_progress_bar: true
+
+logging:
+  # 日志级别: DEBUG, INFO, WARNING, ERROR (默认: INFO)
+  log_level: "INFO"
+  
+  # 日志文件路径 (可选，不设置则只输出到控制台)
+  log_file: "export.log"
+  
+# 高级配置
+advanced:
+  # 是否启用详细调试信息
+  debug_mode: false
+  
+  # 资源下载失败时的重试间隔（秒）
+  retry_delay: 1
+  
+  # 是否保存原始API响应（用于调试）
+  save_api_responses: false
