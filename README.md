@@ -54,18 +54,18 @@
 
 ### 1. 基本使用
 ```bash
-python xiaomi_note_exporter_optimized.py --cookies "your_cookies_string"
+python xiaomi_to_evernote.py --cookies "your_cookies_string"
 ```
 
 ### 2. 使用配置文件
 ```bash
 # 先创建默认配置文件
-python xiaomi_note_exporter_optimized.py --create-config
+python xiaomi_to_evernote.py --create-config
 
 # 编辑 config.yaml 文件设置参数
 
 # 使用配置文件
-python xiaomi_note_exporter_optimized.py --cookies "your_cookies_string"
+python xiaomi_to_evernote.py --cookies "your_cookies_string"
 ```
 
 ### 3. 命令行参数
@@ -83,7 +83,7 @@ python xiaomi_note_exporter_optimized.py \
 ### 4. 获取 cookies
 程序会自动提示如何从浏览器获取 cookies，或者运行：
 ```bash
-python xiaomi_note_exporter_optimized.py --cookies ""
+python xiaomi_to_evernote.py --cookies ""
 ```
 
 ## 配置文件说明
