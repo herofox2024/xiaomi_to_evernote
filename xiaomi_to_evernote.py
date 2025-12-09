@@ -724,8 +724,8 @@ def get_cookies_from_browser():
 2. 按F12打开开发者工具
 3. 切换到 Network (网络) 标签
 4. 刷新页面
-5. 找到任意一个请求，右键选择 Copy → Copy as cURL
-6. 从cURL命令中提取cookies字符串
+5. 找到imi.com的请求，点击查看标头(Headers)，在标头中找到Cookie字段
+6. 复制Cookie字段的值，这就是所需的cookies字符串
 
 或者直接在控制台运行:
 document.cookie
