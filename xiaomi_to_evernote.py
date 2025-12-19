@@ -77,7 +77,7 @@ class ExportConfig:
     max_retries: int = 3
     max_workers: int = 5
     log_level: str = "INFO"
-    log_file: Optional[str] = None
+    log_file: Optional[str] = "xiaomi_export.log"
     enable_progress_bar: bool = True
 
 
@@ -106,10 +106,32 @@ class Logger:
         
         # 文件处理器（如果指定）
         if config.log_file:
-            file_handler = logging.FileHandler(config.log_file, encoding='utf-8')
-            file_handler.setLevel(getattr(logging, config.log_level.upper()))
-            file_handler.setFormatter(formatter)
-            logger.addHandler(file_handler)
+            # 确保日志文件路径是绝对路径
+            log_file_path = os.path.abspath(config.log_file)
+            try:
+                file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+                file_handler.setLevel(getattr(logging, config.log_level.upper()))
+                file_handler.setFormatter(formatter)
+                logger.addHandler(file_handler)
+                logger.debug(f"日志文件已配置: {log_file_path}")
+                # 立即写入一条测试日志
+                logger.info(f"日志系统初始化完成，日志文件: {log_file_path}")
+            except Exception as e:
+                # 如果文件创建失败，使用控制台输出错误
+                logger.error(f"创建日志文件失败: {e}")
+                # 确保根日志记录器也配置了文件输出
+                root_logger = logging.getLogger()
+                for handler in root_logger.handlers:
+                    if isinstance(handler, logging.FileHandler):
+                        root_logger.removeHandler(handler)
+                try:
+                    root_file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+                    root_file_handler.setLevel(getattr(logging, config.log_level.upper()))
+                    root_file_handler.setFormatter(formatter)
+                    root_logger.addHandler(root_file_handler)
+                    logger.error(f"已为根日志记录器配置日志文件: {log_file_path}")
+                except Exception as e2:
+                    logger.error(f"为根日志记录器创建日志文件也失败: {e2}")
         
         return logger
 
@@ -143,6 +165,9 @@ class Config:
                         
                 for key, value in config_data.get('logging', {}).items():
                     if hasattr(config, key):
+                        # 确保日志文件始终被设置，即使配置文件中为null
+                        if key == 'log_file' and value is None:
+                            value = "xiaomi_export.log"
                         setattr(config, key, value)
                         
             except Exception as e:
@@ -256,7 +281,7 @@ class XiaomiNoteExporter:
                 self.logger.info("登录状态检查成功")
                 return True
             elif response.status_code == 401:
-                self.logger.warning("登录状态无效")
+                self.logger.warning("登录状态无效，cookies已过期，请重新获取")
                 return False
             else:
                 self.logger.warning(f"登录状态检查失败，状态码: {response.status_code}")
@@ -312,6 +337,13 @@ class XiaomiNoteExporter:
         try:
             url = urljoin(self.base_url, f"note/note/{note_id}/")
             response = self.session.get(url, timeout=self.config.timeout)
+            
+            # 检查401错误，明确提示cookies过期
+            if response.status_code == 401:
+                error_msg = f"下载笔记 {note_id} 失败: 登录已过期，请重新获取cookies"
+                self.logger.error(error_msg)
+                raise NetworkError(error_msg)
+            
             response.raise_for_status()
             
             data = response.json()
@@ -320,6 +352,9 @@ class XiaomiNoteExporter:
             
         except requests.RequestException as e:
             self.logger.error(f"下载笔记 {note_id} 失败: {e}")
+            # 区分401错误和其他网络错误
+            if "401" in str(e):
+                raise NetworkError(f"登录已过期，请重新获取cookies")
             raise NetworkError(f"下载笔记失败: {e}")
         except json.JSONDecodeError as e:
             self.logger.error(f"笔记 {note_id} JSON解析失败: {e}")
@@ -329,6 +364,13 @@ class XiaomiNoteExporter:
         """下载资源文件（图片等）"""
         try:
             response = self.session.get(url, timeout=self.config.timeout)
+            
+            # 检查401错误，明确提示cookies过期
+            if response.status_code == 401:
+                error_msg = f"下载资源失败: 登录已过期，请重新获取cookies"
+                self.logger.error(error_msg)
+                raise NetworkError(error_msg)
+            
             response.raise_for_status()
             
             content_type = response.headers.get('Content-Type', 'image/jpeg')
@@ -356,6 +398,9 @@ class XiaomiNoteExporter:
             
         except requests.RequestException as e:
             self.logger.error(f"下载资源失败: {e}")
+            # 区分401错误和其他网络错误
+            if "401" in str(e):
+                raise NetworkError(f"登录已过期，请重新获取cookies")
             raise NetworkError(f"下载资源失败: {e}")
     
     def process_html_content(self, content: str) -> str:
@@ -645,6 +690,12 @@ class XiaomiNoteExporter:
             
             for i, note_id in enumerate(folder['notes']):
                 try:
+                    # 每处理20条笔记检查一次登录状态
+                    if i > 0 and i % 20 == 0:
+                        self.logger.info(f"已处理 {i} 条笔记，检查登录状态...")
+                        if not self.check_login_status():
+                            raise NetworkError("登录已过期，请重新获取cookies")
+                    
                     # 处理单个笔记
                     if self.process_single_note(note_id, xml_root):
                         successful_notes += 1
@@ -763,61 +814,114 @@ def create_default_config(config_file: str = "config.yaml") -> None:
 
 def main():
     """主函数"""
-    print("小米笔记导出工具 - 优化版本")
-    
     import sys
     import argparse
     
-    parser = argparse.ArgumentParser(description='小米笔记导出工具 - 优化版本')
-    parser.add_argument('--cookies', '-c', help='cookies字符串')
-    parser.add_argument('--chunk-size', '-s', type=int, help='每批导出的笔记数量')
-    parser.add_argument('--output-dir', '-o', help='输出目录')
-    parser.add_argument('--config', '-f', default='config.yaml', help='配置文件路径')
+    # 版本信息
+    VERSION = "1.0.4"
+    
+    print(f"小米笔记导出工具 - 优化版本 v{VERSION}")
+    print("=" * 50)
+    
+    parser = argparse.ArgumentParser(
+        description='小米笔记导出工具 - 将小米云笔记导出为Evernote格式(.enex)',
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog="""
+使用示例:
+    1. 基本使用:
+       python xiaomi_to_evernote.py --cookies "your_cookies_string"
+    
+    2. 使用配置文件:
+       python xiaomi_to_evernote.py --create-config  # 创建默认配置
+       python xiaomi_to_evernote.py --cookies "your_cookies_string" --config my_config.yaml
+    
+    3. 自定义参数:
+       python xiaomi_to_evernote.py \
+           --cookies "your_cookies_string" \
+           --chunk-size 20 \
+           --output-dir my_notes \
+           --log-level DEBUG
+        """
+    )
+    
+    parser.add_argument('--cookies', '-c', help='小米云笔记的cookies字符串，必填参数')
+    parser.add_argument('--chunk-size', '-s', type=int, help='每批导出的笔记数量，默认: 50')
+    parser.add_argument('--output-dir', '-o', help='输出目录，默认: exported_notes')
+    parser.add_argument('--config', '-f', default='config.yaml', help='配置文件路径，默认: config.yaml')
     parser.add_argument('--create-config', action='store_true', help='创建默认配置文件')
-    parser.add_argument('--timeout', '-t', type=int, help='请求超时时间（秒）')
-    parser.add_argument('--max-workers', '-w', type=int, help='并发下载工作线程数')
+    parser.add_argument('--timeout', '-t', type=int, help='请求超时时间（秒），默认: 30')
+    parser.add_argument('--max-workers', '-w', type=int, help='并发下载工作线程数，默认: 5')
     parser.add_argument('--log-level', '-l', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], 
-                       help='日志级别')
+                       help='日志级别，默认: INFO')
     parser.add_argument('--no-progress', action='store_true', help='禁用进度条')
+    parser.add_argument('--version', '-v', action='version', version=f'%(prog)s v{VERSION}')
     
     args = parser.parse_args()
     
+    # 日志配置
+    logging.basicConfig(
+        level=logging.INFO,
+        format='%(asctime)s - %(levelname)s - %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    
     # 创建默认配置
     if args.create_config:
+        print("创建默认配置文件...")
         create_default_config(args.config)
+        print("配置文件已创建成功！")
+        print(f"配置文件路径: {os.path.abspath(args.config)}")
+        print("您可以编辑此文件自定义导出设置。")
         return
     
     # 加载配置
+    print(f"加载配置文件: {args.config}...")
     try:
         config = Config.load_from_file(args.config)
+        print("配置文件加载成功！")
         
         # 命令行参数覆盖配置文件
         if args.chunk_size:
             config.chunk_size = args.chunk_size
+            print(f"  分块大小: {config.chunk_size} 条/文件")
         if args.output_dir:
             config.output_dir = args.output_dir
         if args.timeout:
             config.timeout = args.timeout
+            print(f"  请求超时: {config.timeout} 秒")
         if args.max_workers:
             config.max_workers = args.max_workers
+            print(f"  并发线程: {config.max_workers} 个")
         if args.log_level:
             config.log_level = args.log_level
+            print(f"  日志级别: {config.log_level}")
         if args.no_progress:
             config.enable_progress_bar = False
+            print(f"  进度条: 已禁用")
             
+        print(f"  输出目录: {config.output_dir}")
+        print(f"  日志文件: {'启用' if config.log_file else '仅控制台'}")
+        
     except Exception as e:
-        print(f"配置加载失败: {e}")
+        print(f"警告: 配置文件加载失败: {e}")
+        print("将使用默认配置继续导出...")
         config = ExportConfig()
     
     # 获取cookies
     cookies_str = args.cookies
     if not cookies_str:
-        print("未提供cookies参数")
+        print("\n[提示] 未提供cookies参数")
         get_cookies_from_browser()
+        print("=" * 50)
         cookies_str = input("请输入cookies字符串: ").strip()
         if not cookies_str:
             print("错误: cookies不能为空")
+            print("请重新运行程序并提供有效的cookies")
+            input("\n按Enter键退出...")
             sys.exit(1)
+    
+    print("\n[开始导出]")
+    print("=" * 50)
     
     try:
         # 创建导出器
@@ -829,18 +933,46 @@ def main():
         # 开始导出
         exporter.export_notes()
         
+        print("\n" + "=" * 50)
+        print("导出完成！")
+        print(f"导出文件保存在: {os.path.abspath(config.output_dir)}")
+        print("\n提示:")
+        print("  1. 导出的.enex文件可以直接导入到Evernote或其他支持该格式的笔记应用")
+        print("  2. 如果遇到问题，请查看日志文件获取详细信息")
+        print("  3. 若cookies过期，请重新获取并再次运行程序")
+        
     except (NetworkError, ValidationError) as e:
+        print("\n" + "=" * 50)
         error_msg = f"错误: {e}"
         print(error_msg)
         logging.error(error_msg)
+        print("\n解决建议:")
+        if "过期" in str(e) or "401" in str(e):
+            print("  - 请重新获取小米云笔记的cookies")
+            print("  - 确保cookies包含完整的认证信息")
+            print("  - 建议在获取cookies后立即运行导出程序")
+        else:
+            print("  - 检查网络连接是否正常")
+            print("  - 确保cookies正确有效")
+            print("  - 尝试减小分块大小和并发线程数")
+        input("\n按Enter键退出...")
         sys.exit(1)
     except KeyboardInterrupt:
-        print("\n用户中断操作")
+        print("\n\n用户中断操作")
+        print("导出已取消")
+        input("\n按Enter键退出...")
         sys.exit(1)
     except Exception as e:
+        print("\n" + "=" * 50)
         error_msg = f"未知错误: {e}"
         print(error_msg)
-        logging.error(error_msg)
+        logging.error(error_msg, exc_info=True)
+        print("\n解决建议:")
+        print("  - 查看日志文件获取详细错误信息")
+        print("  - 尝试使用--log-level DEBUG获取更详细的日志")
+        print("  - 检查命令行参数是否正确")
+        print("  - 确保Python版本 >= 3.7")
+        input("\n按Enter键退出...")
         sys.exit(1)
 
 
