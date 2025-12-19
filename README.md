@@ -70,7 +70,7 @@ python xiaomi_to_evernote.py --cookies "your_cookies_string"
 
 ### 3. 命令行参数
 ```bash
-python xiaomi_note_exporter_optimized.py \
+python xiaomi_to_evernote.py \
   --cookies "your_cookies_string" \
   --chunk-size 30 \
   --output-dir "my_notes" \
@@ -195,7 +195,7 @@ pip install requests PyYAML Pillow tqdm
 
 ### 调试模式
 ```bash
-python xiaomi_note_exporter_optimized.py --cookies "your_cookies" --log-level DEBUG
+python xiaomi_to_evernote.py --cookies "your_cookies" --log-level DEBUG
 ```
 
 ## 贡献指南
@@ -221,7 +221,20 @@ pip install -r requirements.txt
 
 ## 更新日志
 
-### v2.0.0 (2025-11-04)
+### v1.0.3 (2025-12-19)
+- **修复导出400多条笔记闪退问题**：
+  - 优化内存管理，添加资源清理机制
+  - 改进正则表达式性能，使用非贪婪匹配
+  - 优化分块处理逻辑，及时释放资源
+  - 增强异常处理，记录完整堆栈信息
+  - 添加会话资源自动释放机制
+- **性能优化**：
+  - 优化资源处理流程，减少字符串操作开销
+  - 改进XML文档管理，避免内存泄漏
+  - 增强日志记录，便于调试和问题追踪
+  - 优化进度显示，提升用户体验
+
+### v1.0.0 (2025-11-04)
 - 完整的重构和优化
 - 添加配置管理系统
 - 改进错误处理和日志系统

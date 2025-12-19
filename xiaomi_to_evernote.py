@@ -211,6 +211,13 @@ class XiaomiNoteExporter:
         
         self.logger.info("小米笔记导出器初始化完成")
     
+    def __del__(self):
+        """析构函数，释放资源"""
+        try:
+            self.session.close()
+        except Exception as e:
+            pass
+    
     def set_cookies_from_string(self, cookies_str: str) -> None:
         """从字符串设置cookies"""
         try:
@@ -481,13 +488,18 @@ class XiaomiNoteExporter:
             content_elem = ET.SubElement(note_elem, "content")
             original_content = note_entry.get('content', '')
             
-            # 处理嵌入的资源
-            pattern = r'☺.+?<[^/]+/><[^/]*/>'
-            matches = re.findall(pattern, original_content)
+            # 处理嵌入的资源（优化正则表达式性能）
+            processed_content = original_content
             
-            for img_tag in matches:
+            # 使用更高效的正则表达式，避免贪婪匹配
+            img_pattern = re.compile(r'☺([^<]+?)<[^/]+/><[^/]*/>')
+            img_matches = img_pattern.finditer(processed_content)
+            
+            # 收集所有匹配项，避免在循环中修改字符串
+            replacements = []
+            for match in img_matches:
                 try:
-                    file_id = img_tag[2:img_tag.index("<")]
+                    file_id = match.group(1)
                     img_url = f"https://i.mi.com/file/full?type=note_img&fileid={file_id}"
                     
                     # 下载资源
@@ -517,16 +529,20 @@ class XiaomiNoteExporter:
                     major_type, sub_type = resource_data['mime'].split('/')
                     file_name_elem.text = f"minote_{resource_data['hash']}.{sub_type}"
                     
-                    # 替换内容中的占位符
+                    # 记录替换信息
                     replacement = f'<div><en-media type="{resource_data["mime"]}" hash="{resource_data["hash"]}"/></div>'
-                    original_content = original_content.replace(img_tag, replacement)
+                    replacements.append((match.group(0), replacement))
                     
                 except Exception as e:
-                    self.logger.warning(f"处理资源时出错: {e}")
+                    self.logger.warning(f"处理资源 {file_id} 时出错: {e}")
                     continue
             
+            # 执行所有替换
+            for old, new in replacements:
+                processed_content = processed_content.replace(old, new)
+            
             # 处理HTML内容
-            processed_content = self.process_html_content(original_content)
+            processed_content = self.process_html_content(processed_content)
             
             # 创建CDATA内容
             enex_content = f'''<?xml version="1.0" encoding="UTF-8"?>
@@ -539,7 +555,7 @@ class XiaomiNoteExporter:
             return True
             
         except Exception as e:
-            self.logger.error(f"处理笔记 {note_id} 时出错: {e}")
+            self.logger.error(f"处理笔记 {note_id} 时出错: {e}", exc_info=True)
             return False
     
     def download_resources_batch(self, urls: List[str]) -> List[ResourceData]:
@@ -615,16 +631,17 @@ class XiaomiNoteExporter:
             notes_count = len(folder['notes'])
             self.logger.info(f"开始导出文件夹: {folder_name} (包含 {notes_count} 条笔记)")
             
-            # 创建XML文档（整个文件夹共享一个文档）
-            xml_tree = self.create_enex_document()
-            xml_root = xml_tree.getroot()
-            
+            # 重置计数器
             successful_notes = 0
             current_chunk_notes = 0
             chunk_number = 1
             
             # 使用进度条
             progress = self._get_progress_bar(notes_count, f"导出 {folder_name}")
+            
+            # 为每个分块创建单独的XML文档
+            xml_tree = self.create_enex_document()
+            xml_root = xml_tree.getroot()
             
             for i, note_id in enumerate(folder['notes']):
                 try:
@@ -639,23 +656,22 @@ class XiaomiNoteExporter:
                     # 达到分块大小时保存当前文件
                     if current_chunk_notes >= self.config.chunk_size and i < notes_count - 1:
                         # 保存当前分块
-                        if successful_notes > 0:
-                            if notes_count > self.config.chunk_size:
-                                filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
-                            else:
-                                filename = f"{self._sanitize_filename(folder_name)}.enex"
-                            
+                        if current_chunk_notes > 0:
+                            filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
                             chunk_info = {'count': current_chunk_notes}
                             self._save_chunk(xml_tree, filename, chunk_info)
                         
-                        # 创建新的XML文档用于下一分块
+                        # 清理并创建新的XML文档用于下一分块
+                        del xml_tree
+                        del xml_root
+                        
                         xml_tree = self.create_enex_document()
                         xml_root = xml_tree.getroot()
                         current_chunk_notes = 0
                         chunk_number += 1
                 
                 except Exception as e:
-                    self.logger.error(f"处理笔记 {note_id} 时发生错误: {e}")
+                    self.logger.error(f"处理笔记 {note_id} 时发生错误: {e}", exc_info=True)
                     total_failed += 1
                 
                 finally:
@@ -664,7 +680,7 @@ class XiaomiNoteExporter:
             progress.close()
             
             # 保存最后一个分块（或唯一的分块）
-            if successful_notes > 0:
+            if current_chunk_notes > 0:
                 if notes_count > self.config.chunk_size:
                     filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
                 else:
@@ -672,6 +688,10 @@ class XiaomiNoteExporter:
                 
                 chunk_info = {'count': current_chunk_notes}
                 self._save_chunk(xml_tree, filename, chunk_info)
+            
+            # 清理资源
+            del xml_tree
+            del xml_root
             
             self.logger.info(f"文件夹 {folder_name} 导出完成 (成功 {successful_notes}/{notes_count} 条笔记)")
         
@@ -810,13 +830,17 @@ def main():
         exporter.export_notes()
         
     except (NetworkError, ValidationError) as e:
-        print(f"错误: {e}")
+        error_msg = f"错误: {e}"
+        print(error_msg)
+        logging.error(error_msg)
         sys.exit(1)
     except KeyboardInterrupt:
         print("\n用户中断操作")
         sys.exit(1)
     except Exception as e:
-        print(f"未知错误: {e}")
+        error_msg = f"未知错误: {e}"
+        print(error_msg)
+        logging.error(error_msg)
         sys.exit(1)
 
 
