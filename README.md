@@ -202,6 +202,10 @@ python xiaomi_to_evernote.py --cookies "your_cookies" --log-level DEBUG
 
 欢迎提交 Issue 和 Pull Request 来改进这个工具！
 
+### 反馈地址
+
+GitHub仓库：[https://github.com/herofox2024/xiaomi_to_evernote](https://github.com/herofox2024/xiaomi_to_evernote)
+
 ### 开发环境设置
 ```bash
 git clone <repository>
