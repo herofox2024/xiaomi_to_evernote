@@ -1,10 +1,9 @@
 export:
   chunk_size: 50
-  enable_progress_bar: true
   max_retries: 3
   max_workers: 5
   output_dir: exported_notes
   timeout: 30
 logging:
-  log_file: null
+  log_file: xiaomi_export.log
   log_level: INFO

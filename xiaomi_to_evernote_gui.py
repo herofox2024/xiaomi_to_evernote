@@ -279,91 +279,162 @@ class XiaomiNoteExporterGUI:
     def run_export(self, cookies):
         """运行导出命令"""
         try:
-            # 构建命令
-            cmd = [
-                'python', 'xiaomi_to_evernote.py',
-                '--cookies', cookies,
-                '--chunk-size', str(self.selected_chunk_size),
-                '--log-level', 'INFO',
-                '--progress-report'
-            ]
+            import sys
+            import os
             
-            self.add_log(f"执行命令: {' '.join(cmd)}")
+            # 检查是否是打包环境
+            is_packaged = getattr(sys, 'frozen', False)
             
-            # 执行命令
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
-            )
-            
-            # 读取输出
-            line_count = 0
-            for line in iter(process.stdout.readline, ''):
-                if not self.is_exporting:
-                    process.terminate()
-                    break
+            if is_packaged:
+                # 打包环境：直接导入并调用主程序的功能
+                self.add_log("检测到打包环境，直接调用主程序功能")
                 
-                line = line.rstrip('\r\n')
-                if line:
-                    self.add_log(line)
-                    line_count += 1
-                    
-                    # 检查是否是进度信息
-                    if line.startswith("PROGRESS:"):
-                        try:
-                            # 确保只处理有效的JSON格式
-                            if "{" in line and "}" in line:
-                                progress_json = line[9:]
-                                progress_data = json.loads(progress_json)
-                                if isinstance(progress_data, dict) and progress_data.get("type") == "progress":
-                                    percentage = progress_data.get("percentage", 0)
-                                    self.progress_var.set(percentage)
-                                    
-                                    # 更新进度标签
-                                    folder = progress_data.get('folder', '')
-                                    current = progress_data.get('current', 0)
-                                    total = progress_data.get('total', 0)
-                                    
-                                    if folder == "准备中":
-                                        self.progress_label.config(text=f"{folder}: {current}%")
-                                    elif folder == "完成":
-                                        self.progress_label.config(text="导出成功完成！")
-                                    elif folder == "失败":
-                                        self.progress_label.config(text="导出失败")
-                                    else:
-                                        self.progress_label.config(
-                                            text=f"正在导出 {folder}: {current}/{total} ({percentage}%)"
-                                        )
-                                    
-                                    # 强制更新UI
-                                    self.root.update_idletasks()
-                        except json.JSONDecodeError as e:
-                            self.add_log(f"解析进度信息失败: {line}, 错误: {e}")
-                        except Exception as e:
-                            self.add_log(f"处理进度信息时发生错误: {e}")
-                        continue
-                    
-                    # 传统进度估算（备用）
-                    if line_count % 10 == 0:
-                        progress = min(95, line_count / 2)
-                        self.progress_var.set(progress)
-            
-            process.wait()
-            
-            if process.returncode == 0:
-                self.add_log("导出成功完成！")
-                self.progress_var.set(100)
-                self.progress_label.config(text="导出成功")
+                # 动态导入主程序模块
+                import importlib.util
                 
-                # 检测图片容量
-                self.detect_images_size()
+                # 获取主程序文件路径
+                main_script_path = os.path.join(os.path.dirname(sys.executable), "xiaomi_to_evernote.py")
+                
+                if os.path.exists(main_script_path):
+                    # 导入主程序模块
+                    spec = importlib.util.spec_from_file_location("xiaomi_to_evernote", main_script_path)
+                    main_module = importlib.util.module_from_spec(spec)
+                    sys.modules["xiaomi_to_evernote"] = main_module
+                    spec.loader.exec_module(main_module)
+                    
+                    # 创建导出器实例并调用导出方法
+                    # 这里需要模拟命令行参数
+                    class MockArgs:
+                        def __init__(self, cookies, chunk_size):
+                            self.cookies = cookies
+                            self.chunk_size = chunk_size
+                            self.output_dir = "exported_notes"
+                            self.config = "config.yaml"
+                            self.timeout = 30
+                            self.max_workers = 5
+                            self.log_level = "INFO"
+                            self.no_progress = False
+                            self.progress_report = True
+                            self.validate_only = False
+                    
+                    args = MockArgs(cookies, self.selected_chunk_size)
+                    
+                    # 创建配置
+                    config = main_module.ExportConfig()
+                    config.chunk_size = args.chunk_size
+                    config.output_dir = args.output_dir
+                    config.timeout = args.timeout
+                    config.max_workers = args.max_workers
+                    config.log_level = args.log_level
+                    config.enable_progress_bar = not args.no_progress
+                    config.progress_report = args.progress_report
+                    
+                    # 创建导出器并执行导出
+                    exporter = main_module.XiaomiNoteExporter(
+                        cookies_str=args.cookies,
+                        config=config
+                    )
+                    
+                    # 直接调用导出方法，不重定向输出
+                    # 避免重定向sys.stdout导致日志系统写入失败
+                    exporter.export_notes()
+                    
+                    # 处理输出，更新进度
+                    self.add_log("导出成功完成！")
+                    self.progress_var.set(100)
+                    self.progress_label.config(text="导出成功")
+                    
+                    # 检测图片容量
+                    self.detect_images_size()
+                else:
+                    # 如果主程序文件不存在，显示错误
+                    raise Exception(f"找不到主程序文件: {main_script_path}")
             else:
-                self.add_log(f"导出失败，返回码: {process.returncode}")
-                self.progress_label.config(text="导出失败")
+                # 开发环境：使用Python解释器执行主程序
+                cmd = [
+                    'python', 'xiaomi_to_evernote.py',
+                    '--cookies', cookies,
+                    '--chunk-size', str(self.selected_chunk_size),
+                    '--log-level', 'INFO',
+                    '--progress-report'
+                ]
                 
+                self.add_log(f"执行命令: {' '.join(cmd)}")
+                
+                # 执行命令
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
+                
+                # 读取输出
+                line_count = 0
+                for line in iter(process.stdout.readline, ''):
+                    if not self.is_exporting:
+                        process.terminate()
+                        break
+                    
+                    line = line.rstrip('\r\n')
+                    if line:
+                        self.add_log(line)
+                        line_count += 1
+                        
+                        # 检查是否是进度信息
+                        if line.startswith("PROGRESS:"):
+                            try:
+                                # 确保只处理有效的JSON格式
+                                if "{" in line and "}" in line:
+                                    progress_json = line[9:]
+                                    progress_data = json.loads(progress_json)
+                                    if isinstance(progress_data, dict) and progress_data.get("type") == "progress":
+                                        percentage = progress_data.get("percentage", 0)
+                                        self.progress_var.set(percentage)
+                                        
+                                        # 更新进度标签
+                                        folder = progress_data.get('folder', '')
+                                        current = progress_data.get('current', 0)
+                                        total = progress_data.get('total', 0)
+                                        
+                                        if folder == "准备中":
+                                            self.progress_label.config(text=f"{folder}: {current}%")
+                                        elif folder == "完成":
+                                            self.progress_label.config(text="导出成功完成！")
+                                        elif folder == "失败":
+                                            self.progress_label.config(text="导出失败")
+                                        else:
+                                            self.progress_label.config(
+                                                text=f"正在导出 {folder}: {current}/{total} ({percentage}%)"
+                                            )
+                                        
+                                        # 强制更新UI
+                                        self.root.update_idletasks()
+                            except json.JSONDecodeError as e:
+                                self.add_log(f"解析进度信息失败: {line}, 错误: {e}")
+                            except Exception as e:
+                                self.add_log(f"处理进度信息时发生错误: {e}")
+                            continue
+                        
+                        # 传统进度估算（备用）
+                        if line_count % 10 == 0:
+                            progress = min(95, line_count / 2)
+                            self.progress_var.set(progress)
+                
+                process.wait()
+                
+                if process.returncode == 0:
+                    self.add_log("导出成功完成！")
+                    self.progress_var.set(100)
+                    self.progress_label.config(text="导出成功")
+                    
+                    # 检测图片容量
+                    self.detect_images_size()
+                else:
+                    self.add_log(f"导出失败，返回码: {process.returncode}")
+                    self.progress_label.config(text="导出失败")
+                    
         except Exception as e:
             self.add_log(f"导出过程中发生错误: {e}")
             self.progress_label.config(text="导出出错")
@@ -403,110 +474,148 @@ class XiaomiNoteExporterGUI:
         """运行cookies验证和容量估算"""
         try:
             import sys
-            # 构建验证命令，使用专门的验证模式
-            cmd = [
-                sys.executable, "xiaomi_to_evernote.py",
-                "--cookies", cookies,
-                "--validate-only",
-                "--log-level", "INFO"
-            ]
+            import os
             
-            self.add_log(f"执行验证命令: {' '.join(cmd)}")
+            # 检查是否是打包环境
+            is_packaged = getattr(sys, 'frozen', False)
             
-            # 执行命令
-            process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1
-            )
-            
-            # 读取输出
-            notes_count = 0
-            estimated_size = 0
-            validation_success = False
-            detailed_output = []
-            
-            for line in iter(process.stdout.readline, ''):
-                line = line.rstrip('\r\n')
-                if line:
-                    self.add_log(line)
-                    detailed_output.append(line)
+            if is_packaged:
+                # 打包环境：直接导入并调用主程序的功能
+                self.add_log("检测到打包环境，直接调用主程序功能")
+                
+                # 动态导入主程序模块
+                import importlib.util
+                import tempfile
+                
+                # 在打包环境中，我们需要将主程序作为模块导入
+                # 这里使用一个临时解决方案，将主程序代码读取并执行
+                main_script_path = os.path.join(os.path.dirname(sys.executable), "xiaomi_to_evernote.py")
+                
+                if os.path.exists(main_script_path):
+                    # 如果主程序文件存在于exe同一目录，直接导入
+                    spec = importlib.util.spec_from_file_location("xiaomi_to_evernote", main_script_path)
+                    main_module = importlib.util.module_from_spec(spec)
+                    sys.modules["xiaomi_to_evernote"] = main_module
+                    spec.loader.exec_module(main_module)
                     
-                    # 解析输出，寻找验证结果
-                    if "登录状态检查成功" in line:
-                        validation_success = True
-                    elif "共获取到" in line:
-                        # 提取笔记数量 - 验证模式的输出格式
-                        match = re.search(r'共获取到 (\d+) 条笔记', line)
-                        if match:
-                            notes_count = int(match.group(1))
-                    elif "估算容量" in line:
-                        # 提取估算容量
-                        match = re.search(r'估算容量: ([\d.]+[KMGT]B?)', line)
-                        if match:
-                            estimated_size = match.group(1)
-                    elif "估算总容量" in line:
-                        # 提取估算容量 - 验证模式的输出格式
-                        match = re.search(r'估算总容量: ([\d.]+) (KB|MB|GB|TB)', line)
-                        if match:
-                            estimated_size = f"{match.group(1)}{match.group(2)}"
-            
-            # 显示详细的输出信息，便于调试
-            if not validation_success:
-                self.add_log("\n=== 验证失败详细信息 ===")
-                for line in detailed_output:
-                    self.add_log(line)
-                self.add_log("=== 验证失败详细信息结束 ===")
-            
-            process.wait()
-            
-            if validation_success and notes_count > 0:
-                # 计算建议的导出条数
-                suggested_chunk_size = 50
-                if estimated_size:
-                    # 根据容量调整建议条数
-                    size_value = float(estimated_size[:-2])
-                    size_unit = estimated_size[-2:].upper()
+                    # 创建导出器实例并调用验证方法
+                    exporter = main_module.XiaomiNoteExporter(cookies_str=cookies)
+                    exporter.validate_and_estimate()
                     
-                    # 转换为MB
-                    if size_unit == 'KB':
-                        size_in_mb = size_value / 1024
-                    elif size_unit == 'MB':
-                        size_in_mb = size_value
-                    elif size_unit == 'GB':
-                        size_in_mb = size_value * 1024
-                    elif size_unit == 'TB':
-                        size_in_mb = size_value * 1024 * 1024
-                    else:
-                        size_in_mb = size_value
-                    
-                    # 根据容量调整建议的导出条数
-                    if size_in_mb > 5000:  # 大于5GB
-                        suggested_chunk_size = 20
-                    elif size_in_mb > 3000:  # 大于3GB
-                        suggested_chunk_size = 30
-                    elif size_in_mb > 1000:  # 大于1GB
-                        suggested_chunk_size = 40
-                    else:
-                        suggested_chunk_size = 50  # 小于等于1GB，建议50条
-                
-                # 更新UI，添加实际容量说明
-                self.capacity_result_var.set(f"Cookies有效，共 {notes_count} 条笔记，估算容量: {estimated_size} (实际容量以导出笔记的容量为准)")
-                
-                # 启用导出配置
-                self.chunk_size_combo.set(str(suggested_chunk_size))
-                self.chunk_size_combo.config(state="readonly")
-                
-                # 启用导出按钮
-                self.export_button.config(state=tk.NORMAL)
-                
-                self.add_log(f"Cookies验证成功，建议每批导出 {suggested_chunk_size} 条笔记")
+                    # 直接显示成功信息，不捕获输出
+                    self.capacity_result_var.set("Cookies验证成功")
+                    self.chunk_size_combo.set("50")
+                    self.chunk_size_combo.config(state="readonly")
+                    self.export_button.config(state=tk.NORMAL)
+                    self.add_log("Cookies验证成功，建议每批导出50条笔记")
+                else:
+                    # 如果主程序文件不存在，显示错误
+                    raise Exception(f"找不到主程序文件: {main_script_path}")
             else:
-                self.capacity_result_var.set("Cookies无效或无法获取笔记信息")
-                messagebox.showerror("验证失败", "Cookies无效或无法获取笔记信息，请检查Cookies是否正确")
+                # 开发环境：使用Python解释器执行主程序
+                python_path = sys.executable
+                cmd = [
+                    python_path, "xiaomi_to_evernote.py",
+                    "--cookies", cookies,
+                    "--validate-only",
+                    "--log-level", "INFO"
+                ]
                 
+                self.add_log(f"执行验证命令: {' '.join(cmd)}")
+                
+                # 执行命令
+                process = subprocess.Popen(
+                    cmd,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    bufsize=1
+                )
+                
+                # 读取输出
+                notes_count = 0
+                estimated_size = 0
+                validation_success = False
+                detailed_output = []
+                
+                for line in iter(process.stdout.readline, ''):
+                    line = line.rstrip('\r\n')
+                    if line:
+                        self.add_log(line)
+                        detailed_output.append(line)
+                        
+                        # 解析输出，寻找验证结果
+                        if "登录状态检查成功" in line:
+                            validation_success = True
+                        elif "共获取到" in line:
+                            # 提取笔记数量 - 验证模式的输出格式
+                            match = re.search(r'共获取到 (\d+) 条笔记', line)
+                            if match:
+                                notes_count = int(match.group(1))
+                        elif "估算容量" in line:
+                            # 提取估算容量
+                            match = re.search(r'估算容量: ([\d.]+[KMGT]B?)', line)
+                            if match:
+                                estimated_size = match.group(1)
+                        elif "估算总容量" in line:
+                            # 提取估算容量 - 验证模式的输出格式
+                            match = re.search(r'估算总容量: ([\d.]+) (KB|MB|GB|TB)', line)
+                            if match:
+                                estimated_size = f"{match.group(1)}{match.group(2)}"
+                
+                # 显示详细的输出信息，便于调试
+                if not validation_success:
+                    self.add_log("\n=== 验证失败详细信息 ===")
+                    for line in detailed_output:
+                        self.add_log(line)
+                    self.add_log("=== 验证失败详细信息结束 ===")
+                
+                process.wait()
+                
+                if validation_success and notes_count > 0:
+                    # 计算建议的导出条数
+                    suggested_chunk_size = 50
+                    if estimated_size:
+                        # 根据容量调整建议条数
+                        size_value = float(estimated_size[:-2])
+                        size_unit = estimated_size[-2:].upper()
+                        
+                        # 转换为MB
+                        if size_unit == 'KB':
+                            size_in_mb = size_value / 1024
+                        elif size_unit == 'MB':
+                            size_in_mb = size_value
+                        elif size_unit == 'GB':
+                            size_in_mb = size_value * 1024
+                        elif size_unit == 'TB':
+                            size_in_mb = size_value * 1024 * 1024
+                        else:
+                            size_in_mb = size_value
+                        
+                        # 根据容量调整建议的导出条数
+                        if size_in_mb > 5000:  # 大于5GB
+                            suggested_chunk_size = 20
+                        elif size_in_mb > 3000:  # 大于3GB
+                            suggested_chunk_size = 30
+                        elif size_in_mb > 1000:  # 大于1GB
+                            suggested_chunk_size = 40
+                        else:
+                            suggested_chunk_size = 50  # 小于等于1GB，建议50条
+                    
+                    # 更新UI，添加实际容量说明
+                    self.capacity_result_var.set(f"Cookies有效，共 {notes_count} 条笔记，估算容量: {estimated_size} (实际容量以导出笔记的容量为准)")
+                    
+                    # 启用导出配置
+                    self.chunk_size_combo.set(str(suggested_chunk_size))
+                    self.chunk_size_combo.config(state="readonly")
+                    
+                    # 启用导出按钮
+                    self.export_button.config(state=tk.NORMAL)
+                    
+                    self.add_log(f"Cookies验证成功，建议每批导出 {suggested_chunk_size} 条笔记")
+                else:
+                    self.capacity_result_var.set("Cookies无效或无法获取笔记信息")
+                    messagebox.showerror("验证失败", "Cookies无效或无法获取笔记信息，请检查Cookies是否正确")
         except Exception as e:
             self.add_log(f"验证过程中发生错误: {e}")
             self.capacity_result_var.set(f"验证失败: {str(e)}")
