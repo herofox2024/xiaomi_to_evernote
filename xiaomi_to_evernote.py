@@ -171,10 +171,10 @@ class Config:
                             value = "xiaomi_export.log"
                         setattr(config, key, value)
                         
+
                 # 处理progress_report参数
                 if 'progress_report' in config_data.get('export', {}):
                     config.progress_report = config_data['export']['progress_report']
-                        
             except Exception as e:
                 logging.warning(f"配置文件加载失败: {e}，使用默认配置")
         
@@ -722,7 +722,6 @@ class XiaomiNoteExporter:
                             "percentage": round((i + 1) / notes_count * 100, 2)
                         }
                         print(f"PROGRESS:{json.dumps(progress_data)}")
-                    
                     # 达到分块大小时保存当前文件
                     if current_chunk_notes >= self.config.chunk_size and i < notes_count - 1:
                         # 保存当前分块
@@ -781,6 +780,7 @@ class XiaomiNoteExporter:
         
         return filename.strip()
     
+
     def validate_and_estimate(self) -> None:
         """验证cookies并估算容量，不实际导出笔记"""
         self.logger.info("开始验证cookies并估算容量...")
@@ -813,7 +813,6 @@ class XiaomiNoteExporter:
         except Exception as e:
             self.logger.error(f"验证和估算过程中出错: {e}")
             raise
-    
     def export_notes(self) -> None:
         """主导出函数"""
         self.logger.info("开始导出小米笔记...")

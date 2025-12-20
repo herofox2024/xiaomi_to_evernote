@@ -1,0 +1,56 @@
+# 虚拟环境
+venv/
+env/
+*.venv/
+
+# 编译后的文件
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# 日志文件
+*.log
+export.log
+
+# 配置文件
+config.yaml
+!.github/
+
+# 打包生成的文件
+dist/
+build/
+*.spec
+
+# IDE配置
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 测试文件
+.pytest_cache/
+*.pytest_cache/
+
+# 覆盖率报告
+.coverage
+htmlcov/
+
+# 其他临时文件
+*.tmp
+*.temp
+*.bak
+
+# 文档构建
+_build/
+docs/_build/
+
+# 数据文件
+*.jsonl
+*.csv
+*.xlsx
+*.sqlite3
