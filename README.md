@@ -296,3 +296,7 @@ pip install -r requirements.txt
 - 性能优化和并发支持
 - 安全性改进
 - 用户体验提升
+
+- ## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=herofox2024/xiaomi_to_evernote&type=date&legend=top-left)](https://www.star-history.com/#herofox2024/xiaomi_to_evernote&type=date&legend=top-left)
