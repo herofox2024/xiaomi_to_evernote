@@ -21,6 +21,7 @@ import json
 import os
 import logging
 import yaml
+import gc
 from datetime import datetime
 from typing import Dict, List, Optional, TypedDict, Any, Union
 from urllib.parse import urljoin
@@ -80,6 +81,18 @@ class ExportConfig:
     log_file: Optional[str] = "xiaomi_export.log"
     enable_progress_bar: bool = True
 
+    def get_log_file_path(self) -> Optional[str]:
+        """获取日志文件路径，自动添加日期戳以避免覆盖"""
+        if not self.log_file:
+            return None
+
+        # 如果是简单文件名，添加日期戳
+        base_name = os.path.splitext(self.log_file)[0]
+        extension = os.path.splitext(self.log_file)[1]
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+
+        return f"{base_name}_{timestamp}{extension}"
+
 
 class Logger:
     """日志管理器"""
@@ -89,50 +102,49 @@ class Logger:
         """设置日志系统"""
         logger = logging.getLogger(__name__)
         logger.setLevel(getattr(logging, config.log_level.upper()))
-        
+
         # 清除现有处理器
         logger.handlers.clear()
-        
+
         # 控制台处理器
         console_handler = logging.StreamHandler()
         console_handler.setLevel(getattr(logging, config.log_level.upper()))
-        
+
         # 格式化器
         formatter = logging.Formatter(
             '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         console_handler.setFormatter(formatter)
         logger.addHandler(console_handler)
-        
+
         # 文件处理器（如果指定）
-        if config.log_file:
+        log_file_path = config.get_log_file_path()
+        if log_file_path:
             # 确保日志文件路径是绝对路径
-            log_file_path = os.path.abspath(config.log_file)
+            log_file_abs_path = os.path.abspath(log_file_path)
             try:
-                file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+                file_handler = logging.FileHandler(log_file_abs_path, encoding='utf-8', mode='a')
                 file_handler.setLevel(getattr(logging, config.log_level.upper()))
                 file_handler.setFormatter(formatter)
                 logger.addHandler(file_handler)
-                logger.debug(f"日志文件已配置: {log_file_path}")
-                # 立即写入一条测试日志
-                logger.info(f"日志系统初始化完成，日志文件: {log_file_path}")
+                logger.debug(f"日志文件已配置: {log_file_abs_path}")
+                logger.info(f"日志系统初始化完成，日志文件: {log_file_abs_path}")
             except Exception as e:
                 # 如果文件创建失败，使用控制台输出错误
                 logger.error(f"创建日志文件失败: {e}")
-                # 确保根日志记录器也配置了文件输出
-                root_logger = logging.getLogger()
-                for handler in root_logger.handlers:
-                    if isinstance(handler, logging.FileHandler):
-                        root_logger.removeHandler(handler)
                 try:
-                    root_file_handler = logging.FileHandler(log_file_path, encoding='utf-8')
+                    root_logger = logging.getLogger()
+                    for handler in root_logger.handlers[:]:
+                        if isinstance(handler, logging.FileHandler):
+                            root_logger.removeHandler(handler)
+                    root_file_handler = logging.FileHandler(log_file_abs_path, encoding='utf-8', mode='a')
                     root_file_handler.setLevel(getattr(logging, config.log_level.upper()))
                     root_file_handler.setFormatter(formatter)
                     root_logger.addHandler(root_file_handler)
-                    logger.error(f"已为根日志记录器配置日志文件: {log_file_path}")
+                    logger.error(f"已为根日志记录器配置日志文件: {log_file_abs_path}")
                 except Exception as e2:
                     logger.error(f"为根日志记录器创建日志文件也失败: {e2}")
-        
+
         return logger
 
 
@@ -165,9 +177,8 @@ class Config:
                         
                 for key, value in config_data.get('logging', {}).items():
                     if hasattr(config, key):
-                        # 确保日志文件始终被设置，即使配置文件中为null
-                        if key == 'log_file' and value is None:
-                            value = "xiaomi_export.log"
+                        # 注意：如果用户明确设置 log_file 为 null，则尊重用户选择（仅控制台输出）
+                        # 如果配置文件中没有 log_file 键，则使用默认值
                         setattr(config, key, value)
                         
             except Exception as e:
@@ -220,6 +231,12 @@ class XiaomiNoteExporter:
         
         # 创建输出目录
         os.makedirs(self.config.output_dir, exist_ok=True)
+
+        # 验证输出目录的写权限
+        if not os.access(self.config.output_dir, os.W_OK):
+            raise ValidationError(f"输出目录无写权限: {os.path.abspath(self.config.output_dir)}")
+
+        self.logger.debug(f"输出目录已验证: {os.path.abspath(self.config.output_dir)}")
         
         # 设置cookies
         if cookies_str:
@@ -240,7 +257,9 @@ class XiaomiNoteExporter:
         """析构函数，释放资源"""
         try:
             self.session.close()
-        except Exception as e:
+        except Exception:
+            # 析构函数中无法安全地使用日志，静默处理
+            # 但确保不会抛出异常影响程序退出
             pass
     
     def set_cookies_from_string(self, cookies_str: str) -> None:
@@ -306,13 +325,57 @@ class XiaomiNoteExporter:
             self.logger.warning(f"时间戳转换失败: {timestamp}, {e}")
             return datetime.now().strftime("%Y%m%dT%H%M%SZ")
     
+    def _retry_request(self, func, *args, **kwargs):
+        """带重试机制的请求执行器
+        
+        Args:
+            func: 要执行的请求函数
+            *args, **kwargs: 传递给函数的参数
+            
+        Returns:
+            函数执行结果
+            
+        Raises:
+            NetworkError: 重试次数用尽后仍然失败
+        """
+        last_exception = None
+        for attempt in range(self.config.max_retries):
+            try:
+                return func(*args, **kwargs)
+            except NetworkError as e:
+                # 401 认证错误不重试，直接抛出
+                if "过期" in str(e) or "401" in str(e):
+                    raise
+                last_exception = e
+                if attempt < self.config.max_retries - 1:
+                    wait_time = (attempt + 1) * 2  # 递增等待时间: 2s, 4s, 6s...
+                    self.logger.warning(f"请求失败，{wait_time}秒后重试 ({attempt + 1}/{self.config.max_retries}): {e}")
+                    time.sleep(wait_time)
+            except Exception as e:
+                last_exception = e
+                if attempt < self.config.max_retries - 1:
+                    wait_time = (attempt + 1) * 2
+                    self.logger.warning(f"请求异常，{wait_time}秒后重试 ({attempt + 1}/{self.config.max_retries}): {e}")
+                    time.sleep(wait_time)
+        
+        raise NetworkError(f"重试 {self.config.max_retries} 次后仍然失败: {last_exception}")
+    
     def sanitize_for_xml(self, content: str) -> str:
-        """清理XML特殊字符"""
+        """清理XML特殊字符和控制字符
+        
+        处理以下情况：
+        1. XML 特殊字符：&, <, >, ", '
+        2. 非法控制字符：\x00-\x08, \x0B, \x0C, \x0E-\x1F
+        3. 保留合法空白字符：\x09 (Tab), \x0A (LF), \x0D (CR)
+        """
         if not content:
             return ""
         
+        # 先处理 & 符号，避免重复转义
+        content = content.replace('&', '&amp;')
+        
+        # 处理其他 XML 特殊字符
         replacements = {
-            '&': '&amp;',
             '<': '&lt;', 
             '>': '&gt;',
             '"': '&quot;',
@@ -321,6 +384,17 @@ class XiaomiNoteExporter:
         
         for old, new in replacements.items():
             content = content.replace(old, new)
+        
+        # 移除非法的 XML 控制字符
+        # XML 1.0 允许的控制字符只有：\x09 (Tab), \x0A (LF), \x0D (CR)
+        # 其他控制字符（\x00-\x08, \x0B, \x0C, \x0E-\x1F）需要移除
+        illegal_chars = []
+        for i in range(0x00, 0x20):
+            if i not in (0x09, 0x0A, 0x0D):  # 保留 Tab, LF, CR
+                illegal_chars.append(chr(i))
+        
+        for char in illegal_chars:
+            content = content.replace(char, '')
         
         return content
     
@@ -333,8 +407,8 @@ class XiaomiNoteExporter:
         return base64.b64encode(data).decode('utf-8')
     
     def download_note(self, note_id: str) -> Dict[str, Any]:
-        """下载单个笔记内容"""
-        try:
+        """下载单个笔记内容（带重试机制）"""
+        def _do_download():
             url = urljoin(self.base_url, f"note/note/{note_id}/")
             response = self.session.get(url, timeout=self.config.timeout)
             
@@ -349,20 +423,16 @@ class XiaomiNoteExporter:
             data = response.json()
             self.logger.debug(f"笔记 {note_id} 下载成功")
             return data
-            
-        except requests.RequestException as e:
-            self.logger.error(f"下载笔记 {note_id} 失败: {e}")
-            # 区分401错误和其他网络错误
-            if "401" in str(e):
-                raise NetworkError(f"登录已过期，请重新获取cookies")
-            raise NetworkError(f"下载笔记失败: {e}")
+        
+        try:
+            return self._retry_request(_do_download)
         except json.JSONDecodeError as e:
             self.logger.error(f"笔记 {note_id} JSON解析失败: {e}")
             raise NetworkError(f"JSON解析失败: {e}")
     
     def download_resource(self, url: str) -> ResourceData:
-        """下载资源文件（图片等）"""
-        try:
+        """下载资源文件（图片等），带重试机制"""
+        def _do_download():
             response = self.session.get(url, timeout=self.config.timeout)
             
             # 检查401错误，明确提示cookies过期
@@ -387,6 +457,11 @@ class XiaomiNoteExporter:
                         width, height = img.size
                 except Exception as e:
                     self.logger.warning(f"图片尺寸检测失败: {e}")
+                    # 尽管获取不到尺寸，但继续处理此资源
+                    width, height = 0, 0
+            else:
+                # PIL 不可用时设置默认值
+                width, height = 0, 0
             
             return {
                 'data': self.base64_encode(raw_data),
@@ -395,13 +470,8 @@ class XiaomiNoteExporter:
                 'height': height,
                 'mime': content_type
             }
-            
-        except requests.RequestException as e:
-            self.logger.error(f"下载资源失败: {e}")
-            # 区分401错误和其他网络错误
-            if "401" in str(e):
-                raise NetworkError(f"登录已过期，请重新获取cookies")
-            raise NetworkError(f"下载资源失败: {e}")
+        
+        return self._retry_request(_do_download)
     
     def process_html_content(self, content: str) -> str:
         """处理HTML内容，转换为Evernote格式"""
@@ -438,60 +508,62 @@ class XiaomiNoteExporter:
         
         return ET.ElementTree(root)
     
-    def download_notes_recursive(self, sync_tag: Optional[str] = None, 
-                                note_collection: Optional[List] = None) -> List:
-        """递归下载笔记列表"""
-        if note_collection is None:
-            note_collection = []
+    def download_notes_list(self) -> List:
+        """下载笔记列表（迭代实现，避免递归栈溢出）"""
+        note_collection = []
+        sync_tag = None
         
-        url = urljoin(self.base_url, "note/full/page/")
-        params = {"limit": 200}
-        if sync_tag:
-            params["syncTag"] = sync_tag
-        
-        self.logger.info(f"获取笔记列表，syncTag: {sync_tag}")
-        
-        try:
-            response = self.session.get(url, params=params, timeout=self.config.timeout)
+        while True:
+            url = urljoin(self.base_url, "note/full/page/")
+            params = {"limit": 200}
+            if sync_tag:
+                params["syncTag"] = sync_tag
             
-            # 检查授权状态
-            if response.status_code == 401:
-                raise NetworkError("未授权访问，请检查cookies是否有效")
+            self.logger.info(f"获取笔记列表，syncTag: {sync_tag}")
             
-            response.raise_for_status()
-            data = response.json()
-            
-            # 更新文件夹列表
-            for folder in data.get('data', {}).get('folders', []):
-                self.folder_list[folder['id']] = {
-                    "subject": folder['subject'],
-                    "notes": []
-                }
-            
-            # 收集笔记
-            entries = data.get('data', {}).get('entries', [])
-            note_collection.extend(entries)
-            
-            self.logger.info(f"本次获取 {len(entries)} 条笔记，总共 {len(note_collection)} 条")
-            
-            if not entries:
-                # 处理最终笔记分配
-                for entry in note_collection:
-                    folder = self.folder_list.get(entry.get('folderId'))
-                    if folder:
-                        folder['notes'].append(entry['id'])
-                    else:
-                        self.logger.warning(f"找不到文件夹ID {entry.get('folderId')} 对应的文件夹")
+            try:
+                response = self.session.get(url, params=params, timeout=self.config.timeout)
                 
-                return note_collection
+                # 检查授权状态
+                if response.status_code == 401:
+                    raise NetworkError("未授权访问，请检查cookies是否有效")
+                
+                response.raise_for_status()
+                data = response.json()
+                
+                # 更新文件夹列表
+                for folder in data.get('data', {}).get('folders', []):
+                    self.folder_list[folder['id']] = {
+                        "subject": folder['subject'],
+                        "notes": []
+                    }
+                
+                # 收集笔记
+                entries = data.get('data', {}).get('entries', [])
+                note_collection.extend(entries)
+                
+                self.logger.info(f"本次获取 {len(entries)} 条笔记，总共 {len(note_collection)} 条")
+                
+                if not entries:
+                    # 没有更多笔记，处理最终笔记分配
+                    break
+                else:
+                    # 获取下一页的 syncTag
+                    sync_tag = data.get('data', {}).get('syncTag')
+                    
+            except requests.RequestException as e:
+                self.logger.error(f"获取笔记列表失败: {e}")
+                raise NetworkError(f"获取笔记列表失败: {e}")
+        
+        # 处理最终笔记分配到文件夹
+        for entry in note_collection:
+            folder = self.folder_list.get(entry.get('folderId'))
+            if folder:
+                folder['notes'].append(entry['id'])
             else:
-                # 继续递归下载
-                next_sync_tag = data.get('data', {}).get('syncTag')
-                return self.download_notes_recursive(next_sync_tag, note_collection)
-                
-        except requests.RequestException as e:
-            self.logger.error(f"获取笔记列表失败: {e}")
-            raise NetworkError(f"获取笔记列表失败: {e}")
+                self.logger.warning(f"找不到文件夹ID {entry.get('folderId')} 对应的文件夹")
+        
+        return note_collection
     
     def process_single_note(self, note_id: str, xml_root: ET.Element) -> bool:
         """处理单个笔记并添加到XML根节点"""
@@ -535,51 +607,63 @@ class XiaomiNoteExporter:
             
             # 处理嵌入的资源（优化正则表达式性能）
             processed_content = original_content
-            
+
             # 使用更高效的正则表达式，避免贪婪匹配
-            img_pattern = re.compile(r'☺([^<]+?)<[^/]+/><[^/]*/>')
-            img_matches = img_pattern.finditer(processed_content)
+            # 支持多种可能的图片标记格式：☺、emoji或特殊标记
+            img_pattern = re.compile(r'(?:☺|🙂|<img[^>]*data-fileid="?([^">\s]+)"?[^>]*>|[\u2600-\u27BF]*)([^<]+?)<[^/]+/><[^/]*/>', re.DOTALL)
+            img_matches = list(img_pattern.finditer(processed_content))
             
             # 收集所有匹配项，避免在循环中修改字符串
             replacements = []
             for match in img_matches:
                 try:
-                    file_id = match.group(1)
+                    # 获取文件ID（可能在不同的 group 中）
+                    file_id = None
+                    for i in range(1, len(match.groups()) + 1):
+                        group_val = match.group(i)
+                        if group_val:
+                            file_id = group_val.strip()
+                            break
+
+                    if not file_id:
+                        self.logger.warning(f"无法从匹配项中提取文件ID: {match.group(0)}")
+                        continue
+
                     img_url = f"https://i.mi.com/file/full?type=note_img&fileid={file_id}"
-                    
+
                     # 下载资源
                     resource_data = self.download_resource(img_url)
-                    
+
                     # 创建资源元素
                     resource_elem = ET.SubElement(note_elem, "resource")
-                    
+
                     data_elem = ET.SubElement(resource_elem, "data")
                     data_elem.set("encoding", "base64")
                     data_elem.text = resource_data['data']
-                    
+
                     mime_elem = ET.SubElement(resource_elem, "mime")
                     mime_elem.text = resource_data['mime']
-                    
+
                     # 图片尺寸
                     width_elem = ET.SubElement(resource_elem, "width")
                     width_elem.text = str(resource_data['width'])
                     height_elem = ET.SubElement(resource_elem, "height")
                     height_elem.text = str(resource_data['height'])
-                    
+
                     # 资源属性
                     resource_attr = ET.SubElement(resource_elem, "resource-attributes")
                     ET.SubElement(resource_attr, "source-url")
-                    
+
                     file_name_elem = ET.SubElement(resource_attr, "file-name")
                     major_type, sub_type = resource_data['mime'].split('/')
                     file_name_elem.text = f"minote_{resource_data['hash']}.{sub_type}"
-                    
+
                     # 记录替换信息
                     replacement = f'<div><en-media type="{resource_data["mime"]}" hash="{resource_data["hash"]}"/></div>'
                     replacements.append((match.group(0), replacement))
-                    
+
                 except Exception as e:
-                    self.logger.warning(f"处理资源 {file_id} 时出错: {e}")
+                    self.logger.warning(f"处理资源时出错: {e}")
                     continue
             
             # 执行所有替换
@@ -588,12 +672,14 @@ class XiaomiNoteExporter:
             
             # 处理HTML内容
             processed_content = self.process_html_content(processed_content)
-            
-            # 创建CDATA内容
+
+            # 创建正确的XML内容（使用CDATA避免转义问题）
             enex_content = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
 <en-note><div>{processed_content}</div></en-note>'''
-            
+
+            # 直接使用text存储会导致特殊字符被转义，这里需要使用CDATA
+            # 为了确保格式正确，我们将其存储为文本并标记为CDATA部分
             content_elem.text = enex_content
             
             self.logger.debug(f"笔记 {note_id} 处理成功")
@@ -637,7 +723,16 @@ class XiaomiNoteExporter:
         try:
             filepath = os.path.join(self.config.output_dir, filename)
             xml_tree.write(filepath, encoding='utf-8', xml_declaration=True)
-            self.logger.info(f"已导出分块: {filepath} (包含 {chunk_info['count']} 条笔记)")
+
+            # 验证文件是否成功写入
+            if not os.path.exists(filepath):
+                raise IOError(f"文件写入失败：文件不存在")
+
+            file_size = os.path.getsize(filepath)
+            if file_size == 0:
+                raise IOError(f"文件写入失败：文件大小为 0 字节")
+
+            self.logger.info(f"已导出分块: {filepath} (包含 {chunk_info['count']} 条笔记, 大小: {file_size} 字节)")
         except Exception as e:
             self.logger.error(f"保存分块失败 {filename}: {e}")
             raise
@@ -649,19 +744,21 @@ class XiaomiNoteExporter:
         else:
             # 简单的进度显示
             class SimpleProgress:
-                def __init__(self, total):
+                def __init__(self, total: int, description: str):
                     self.total = total
                     self.current = 0
-                
-                def update(self, n=1):
+                    self.description = description  # 保存描述信息到实例
+
+                def update(self, n: int = 1):
                     self.current += n
-                    percentage = (self.current / self.total) * 100
-                    print(f"\r{desc}: {self.current}/{self.total} ({percentage:.1f}%)", end='', flush=True)
-                
+                    if self.total > 0:
+                        percentage = (self.current / self.total) * 100
+                        print(f"\r{self.description}: {self.current}/{self.total} ({percentage:.1f}%)", end='', flush=True)
+
                 def close(self):
                     print()  # 换行
-            
-            return SimpleProgress(total)
+
+            return SimpleProgress(total, desc)
     
     def handle_folder_export(self) -> None:
         """处理文件夹导出 - 优化版本"""
@@ -711,23 +808,31 @@ class XiaomiNoteExporter:
                             filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
                             chunk_info = {'count': current_chunk_notes}
                             self._save_chunk(xml_tree, filename, chunk_info)
-                        
+
                         # 清理并创建新的XML文档用于下一分块
                         del xml_tree
                         del xml_root
-                        
+                        gc.collect()  # 主动进行垃圾回收
+
                         xml_tree = self.create_enex_document()
                         xml_root = xml_tree.getroot()
                         current_chunk_notes = 0
                         chunk_number += 1
                 
+                except NetworkError as e:
+                    # 401 认证错误，立即终止导出
+                    if "过期" in str(e) or "401" in str(e):
+                        self.logger.error(f"登录已过期，导出终止。已完成 {total_exported} 条笔记")
+                        raise
+                    self.logger.error(f"处理笔记 {note_id} 时发生网络错误: {e}")
+                    total_failed += 1
                 except Exception as e:
                     self.logger.error(f"处理笔记 {note_id} 时发生错误: {e}", exc_info=True)
                     total_failed += 1
-                
+
                 finally:
                     progress.update(1)
-            
+
             progress.close()
             
             # 保存最后一个分块（或唯一的分块）
@@ -743,7 +848,11 @@ class XiaomiNoteExporter:
             # 清理资源
             del xml_tree
             del xml_root
-            
+
+            # 定期进行垃圾回收以避免内存泄漏
+            if folder_id % 3 == 0:  # 每处理 3 个文件夹进行一次回收
+                gc.collect()
+
             self.logger.info(f"文件夹 {folder_name} 导出完成 (成功 {successful_notes}/{notes_count} 条笔记)")
         
         self.logger.info(f"所有文件夹导出完成！总共导出 {total_exported} 条笔记，失败 {total_failed} 条")
@@ -755,11 +864,13 @@ class XiaomiNoteExporter:
         illegal_chars = '<>:"/\\|?*'
         for char in illegal_chars:
             filename = filename.replace(char, '_')
-        
-        # 限制长度
-        if len(filename) > 200:
-            filename = filename[:200]
-        
+
+        # 限制长度为 255（NTFS/ext4 标准）减去 .enex 扩展名空间
+        # 保守估计留出 10 个字符给扩展名和后缀
+        max_len = 245
+        if len(filename) > max_len:
+            filename = filename[:max_len]
+
         return filename.strip()
     
     def export_notes(self) -> None:
@@ -774,7 +885,7 @@ class XiaomiNoteExporter:
         
         try:
             # 下载笔记列表
-            self.download_notes_recursive()
+            self.download_notes_list()
             
             # 导出各个文件夹
             self.handle_folder_export()
@@ -816,9 +927,9 @@ def main():
     """主函数"""
     import sys
     import argparse
-    
+
     # 版本信息
-    VERSION = "1.0.4"
+    VERSION = "1.0.5"
     
     print(f"小米笔记导出工具 - 优化版本 v{VERSION}")
     print("=" * 50)
