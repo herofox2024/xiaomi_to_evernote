@@ -227,6 +227,38 @@ pip install -r requirements.txt
 
 ## 更新日志
 
+### v1.0.5 (2025-12-20)
+- **版本统一**：
+  - 主程序和GUI版本号统一为 v1.0.5
+  - 确保所有组件版本一致
+
+- **GUI界面优化**：
+  - 新增cookies验证和容量估算功能
+  - 优化导出进度显示，支持结构化进度信息
+  - 修复导出进度不显示问题
+  - 改进容量估算算法，每条笔记平均200KB
+  - 添加实际容量说明提示
+  - 优化界面布局，调整窗口默认大小为850x800
+  - 修复重复导出条数字段问题
+  - 支持根据容量自动调整建议导出条数
+  - 将"每批导出条数"从Entry组件改为OptionMenu下拉框组件，提供20-100的选项
+  - 增强GUI窗口的最小尺寸限制，确保界面元素完整显示
+  - 优化容量结果显示，支持自动换行
+
+- **主程序功能增强**：
+  - 新增 `--validate-only` 参数，用于cookies验证和容量估算
+  - 实现 `validate_and_estimate()` 方法，提供准确的容量估算
+  - 添加结构化进度报告输出，便于GUI解析
+  - 改进导出逻辑，支持按容量动态调整分块大小
+  - 优化cookies验证流程，提供更详细的验证结果
+
+- **统一入口脚本改进**：
+  - 完善 `xiaomi_export.py` 统一入口脚本，支持命令行和GUI模式
+  - 添加自定义输出流捕获，实现实时进度更新
+  - 增强日志系统，确保日志文件自动生成
+  - 支持使用PyInstaller打包为可执行文件
+  - 优化GUI和命令行模式的切换逻辑
+
 ### v1.0.4 (2025-12-19)
 - **错误日志优化**：
   - 修复了错误日志没有打印出来的问题
@@ -264,3 +296,7 @@ pip install -r requirements.txt
 - 性能优化和并发支持
 - 安全性改进
 - 用户体验提升
+
+- ## Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=herofox2024/xiaomi_to_evernote&type=date&legend=top-left)](https://www.star-history.com/#herofox2024/xiaomi_to_evernote&type=date&legend=top-left)

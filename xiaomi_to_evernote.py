@@ -80,6 +80,7 @@ class ExportConfig:
     log_level: str = "INFO"
     log_file: Optional[str] = "xiaomi_export.log"
     enable_progress_bar: bool = True
+    progress_report: bool = False  # 输出结构化进度信息
 
     def get_log_file_path(self) -> Optional[str]:
         """获取日志文件路径，自动添加日期戳以避免覆盖"""
@@ -181,6 +182,10 @@ class Config:
                         # 如果配置文件中没有 log_file 键，则使用默认值
                         setattr(config, key, value)
                         
+
+                # 处理progress_report参数
+                if 'progress_report' in config_data.get('export', {}):
+                    config.progress_report = config_data['export']['progress_report']
             except Exception as e:
                 logging.warning(f"配置文件加载失败: {e}，使用默认配置")
         
@@ -196,7 +201,8 @@ class Config:
                 'timeout': config.timeout,
                 'max_retries': config.max_retries,
                 'max_workers': config.max_workers,
-                'enable_progress_bar': config.enable_progress_bar
+                'enable_progress_bar': config.enable_progress_bar,
+                'progress_report': config.progress_report
             },
             'logging': {
                 'log_level': config.log_level,
@@ -801,6 +807,18 @@ class XiaomiNoteExporter:
                     else:
                         total_failed += 1
                     
+                    # 输出结构化进度信息
+                    if self.config.progress_report:
+                        progress_data = {
+                            "type": "progress",
+                            "current": i + 1,
+                            "total": notes_count,
+                            "folder": folder_name,
+                            "successful": successful_notes,
+                            "failed": total_failed,
+                            "percentage": round((i + 1) / notes_count * 100, 2)
+                        }
+                        print(f"PROGRESS:{json.dumps(progress_data)}")
                     # 达到分块大小时保存当前文件
                     if current_chunk_notes >= self.config.chunk_size and i < notes_count - 1:
                         # 保存当前分块
@@ -873,27 +891,130 @@ class XiaomiNoteExporter:
 
         return filename.strip()
     
+
+    def validate_and_estimate(self) -> None:
+        """验证cookies并估算容量，不实际导出笔记"""
+        self.logger.info("开始验证cookies并估算容量...")
+        
+        # 检查登录状态
+        if not self.check_login_status():
+            raise NetworkError("登录状态无效，请检查cookies")
+        
+        self.logger.info("登录状态检查成功")
+        
+        try:
+            # 获取笔记列表
+            note_list = self.download_notes_recursive()
+            total_notes = len(note_list)
+            self.logger.info(f"共获取到 {total_notes} 条笔记")
+            
+            # 改进容量估算：每条笔记平均200KB（根据用户反馈实际约146KB）
+            avg_size_kb = 200
+            estimated_size_kb = total_notes * avg_size_kb
+            estimated_size_mb = round(estimated_size_kb / 1024, 1)
+            
+            self.logger.info(f"估算总容量: {estimated_size_mb} MB (每条笔记平均 {avg_size_kb} KB)")
+            
+            # 输出估算结果，格式便于GUI解析
+            print(f"估算容量: {estimated_size_mb}MB")
+            print(f"笔记数量: {total_notes}")
+            
+            self.logger.info("容量估算完成")
+            
+        except Exception as e:
+            self.logger.error(f"验证和估算过程中出错: {e}")
+            raise
     def export_notes(self) -> None:
         """主导出函数"""
         self.logger.info("开始导出小米笔记...")
         self.logger.info(f"分批大小: {self.config.chunk_size} 条笔记/文件")
         self.logger.info(f"输出目录: {self.config.output_dir}")
         
+        # 输出初始进度
+        if self.config.progress_report:
+            progress_data = {
+                "type": "progress",
+                "current": 0,
+                "total": 100,
+                "folder": "准备中",
+                "successful": 0,
+                "failed": 0,
+                "percentage": 0.0
+            }
+            print(f"PROGRESS:{json.dumps(progress_data)}")
+        
         # 检查登录状态
         if not self.check_login_status():
             raise NetworkError("登录状态无效，请检查cookies")
         
+        # 登录成功，更新进度
+        if self.config.progress_report:
+            progress_data = {
+                "type": "progress",
+                "current": 10,
+                "total": 100,
+                "folder": "准备中",
+                "successful": 0,
+                "failed": 0,
+                "percentage": 10.0
+            }
+            print(f"PROGRESS:{json.dumps(progress_data)}")
+        
         try:
             # 下载笔记列表
+<<<<<<< HEAD
             self.download_notes_list()
+=======
+            self.logger.info("开始获取笔记列表...")
+            self.download_notes_recursive()
+>>>>>>> 4a748db78a27ae867da590512be3aefe0568c4c9
+            
+            # 笔记列表获取完成，更新进度
+            if self.config.progress_report:
+                progress_data = {
+                    "type": "progress",
+                    "current": 30,
+                    "total": 100,
+                    "folder": "准备中",
+                    "successful": 0,
+                    "failed": 0,
+                    "percentage": 30.0
+                }
+                print(f"PROGRESS:{json.dumps(progress_data)}")
             
             # 导出各个文件夹
+            self.logger.info("开始导出文件夹...")
             self.handle_folder_export()
+            
+            # 导出完成，更新进度
+            if self.config.progress_report:
+                progress_data = {
+                    "type": "progress",
+                    "current": 100,
+                    "total": 100,
+                    "folder": "完成",
+                    "successful": 0,
+                    "failed": 0,
+                    "percentage": 100.0
+                }
+                print(f"PROGRESS:{json.dumps(progress_data)}")
             
             self.logger.info("导出完成!")
             
         except Exception as e:
             self.logger.error(f"导出过程中出错: {e}")
+            # 导出失败，更新进度
+            if self.config.progress_report:
+                progress_data = {
+                    "type": "progress",
+                    "current": 0,
+                    "total": 100,
+                    "folder": "失败",
+                    "successful": 0,
+                    "failed": 1,
+                    "percentage": 0.0
+                }
+                print(f"PROGRESS:{json.dumps(progress_data)}")
             raise
 
 
@@ -965,6 +1086,8 @@ def main():
     parser.add_argument('--log-level', '-l', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], 
                        help='日志级别，默认: INFO')
     parser.add_argument('--no-progress', action='store_true', help='禁用进度条')
+    parser.add_argument('--progress-report', action='store_true', help='输出结构化进度信息')
+    parser.add_argument('--validate-only', action='store_true', help='仅验证cookies并估算容量，不实际导出')
     parser.add_argument('--version', '-v', action='version', version=f'%(prog)s v{VERSION}')
     
     args = parser.parse_args()
@@ -1009,6 +1132,11 @@ def main():
         if args.no_progress:
             config.enable_progress_bar = False
             print(f"  进度条: 已禁用")
+        
+        # 处理进度报告参数
+        config.progress_report = args.progress_report
+        if args.progress_report:
+            print(f"  进度报告: 已启用")
             
         print(f"  输出目录: {config.output_dir}")
         print(f"  日志文件: {'启用' if config.log_file else '仅控制台'}")
@@ -1017,6 +1145,8 @@ def main():
         print(f"警告: 配置文件加载失败: {e}")
         print("将使用默认配置继续导出...")
         config = ExportConfig()
+        # 确保进度报告参数被设置
+        config.progress_report = args.progress_report
     
     # 获取cookies
     cookies_str = args.cookies
@@ -1040,6 +1170,19 @@ def main():
             cookies_str=cookies_str,
             config=config
         )
+        
+        # 检查是否仅验证模式
+        if args.validate_only:
+            print("\n[验证模式] 开始验证cookies并估算容量...")
+            try:
+                # 只执行验证和容量估算
+                exporter.validate_and_estimate()
+            except Exception as e:
+                print(f"\n验证失败: {e}")
+                sys.exit(1)
+            finally:
+                print("\n验证模式完成")
+                sys.exit(0)
         
         # 开始导出
         exporter.export_notes()
