@@ -227,6 +227,33 @@ pip install -r requirements.txt
 
 ## 更新日志
 
+### v1.0.6 (2026-03-12)
+- **Bug 修复**：
+  - 修复 Git 合并冲突未解决的问题
+  - 修复方法名不一致问题（`download_notes_recursive` → `download_notes_list`）
+  - 修复 GUI 中未定义 logger 的问题
+  - 修复 `folder_id` 类型错误导致的 `TypeError`
+  - 修复缩进问题
+
+- **代码优化**：
+  - 清理未使用的线程锁变量 `_lock`
+  - 使用 `raise ... from e` 保留异常链上下文
+  - 更新 XML 内容处理的注释，准确说明 Evernote ENEX 格式
+
+- **性能改进**：
+  - 非图片资源（如 `application/json`）直接跳过，不再重试 3 次，显著提升导出速度
+
+- **代码重构**：
+  - 整合 GUI 文件，`xiaomi_export.py` 现在导入 `xiaomi_to_evernote_gui.py`
+  - 消除重复代码，文件从 545 行简化为 34 行
+  - 三个 Python 文件现在各司其职：
+    - `xiaomi_to_evernote.py` - 核心导出逻辑模块
+    - `xiaomi_to_evernote_gui.py` - GUI 界面模块
+    - `xiaomi_export.py` - 统一入口脚本
+
+- **功能修正**：
+  - 修复导出容量检测功能，现在正确显示 `.enex` 文件总大小而非图片大小
+
 ### v1.0.5 (2025-12-20)
 - **版本统一**：
   - 主程序和GUI版本号统一为 v1.0.5

@@ -29,7 +29,6 @@ from io import BytesIO
 from pathlib import Path
 from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 import time
 
 try:
@@ -254,9 +253,6 @@ class XiaomiNoteExporter:
             2: {"subject": "私密笔记", "notes": []}
         }
         
-        # 线程锁（用于线程安全）
-        self._lock = threading.Lock()
-        
         self.logger.info("小米笔记导出器初始化完成")
     
     def __del__(self):
@@ -434,9 +430,9 @@ class XiaomiNoteExporter:
             return self._retry_request(_do_download)
         except json.JSONDecodeError as e:
             self.logger.error(f"笔记 {note_id} JSON解析失败: {e}")
-            raise NetworkError(f"JSON解析失败: {e}")
+            raise NetworkError(f"JSON解析失败: {e}") from e
     
-    def download_resource(self, url: str) -> ResourceData:
+    def download_resource(self, url: str) -> Optional[ResourceData]:
         """下载资源文件（图片等），带重试机制"""
         def _do_download():
             response = self.session.get(url, timeout=self.config.timeout)
@@ -451,9 +447,11 @@ class XiaomiNoteExporter:
             
             content_type = response.headers.get('Content-Type', 'image/jpeg')
             raw_data = response.content
-            
+
+            # 检查是否是图片类型，非图片类型直接跳过（如 application/json 表示资源不存在）
             if not content_type.startswith('image/'):
-                raise ValueError(f"不支持的资源类型: {content_type}")
+                self.logger.debug(f"跳过非图片资源，类型: {content_type}")
+                return None
             
             # 处理图片
             width, height = 0, 0
@@ -559,7 +557,7 @@ class XiaomiNoteExporter:
                     
             except requests.RequestException as e:
                 self.logger.error(f"获取笔记列表失败: {e}")
-                raise NetworkError(f"获取笔记列表失败: {e}")
+                raise NetworkError(f"获取笔记列表失败: {e}") from e
         
         # 处理最终笔记分配到文件夹
         for entry in note_collection:
@@ -640,6 +638,11 @@ class XiaomiNoteExporter:
                     # 下载资源
                     resource_data = self.download_resource(img_url)
 
+                    # 跳过非图片资源（返回 None）
+                    if resource_data is None:
+                        self.logger.debug(f"跳过非图片资源: {file_id}")
+                        continue
+
                     # 创建资源元素
                     resource_elem = ET.SubElement(note_elem, "resource")
 
@@ -679,13 +682,15 @@ class XiaomiNoteExporter:
             # 处理HTML内容
             processed_content = self.process_html_content(processed_content)
 
-            # 创建正确的XML内容（使用CDATA避免转义问题）
+            # 创建正确的XML内容
+            # Evernote ENEX 格式要求 <content> 元素内的 XML 内容必须被转义
+            # 因此我们将完整的 EN-ML 文档作为文本存储，ElementTree 会自动转义
             enex_content = f'''<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE en-note SYSTEM "http://xml.evernote.com/pub/enml2.dtd">
 <en-note><div>{processed_content}</div></en-note>'''
 
-            # 直接使用text存储会导致特殊字符被转义，这里需要使用CDATA
-            # 为了确保格式正确，我们将其存储为文本并标记为CDATA部分
+            # 将内容作为文本存储，ElementTree 在序列化时会自动转义 XML 特殊字符
+            # 这是 Evernote ENEX 格式的正确做法
             content_elem.text = enex_content
             
             self.logger.debug(f"笔记 {note_id} 处理成功")
@@ -770,11 +775,13 @@ class XiaomiNoteExporter:
         """处理文件夹导出 - 优化版本"""
         total_exported = 0
         total_failed = 0
-        
+        folder_count = 0  # 使用计数器跟踪处理的文件夹数量
+
         for folder_id, folder in self.folder_list.items():
             if not folder['notes']:
                 continue
-            
+
+            folder_count += 1
             folder_name = folder['subject']
             notes_count = len(folder['notes'])
             self.logger.info(f"开始导出文件夹: {folder_name} (包含 {notes_count} 条笔记)")
@@ -786,90 +793,114 @@ class XiaomiNoteExporter:
             
             # 使用进度条
             progress = self._get_progress_bar(notes_count, f"导出 {folder_name}")
-            
+
             # 为每个分块创建单独的XML文档
             xml_tree = self.create_enex_document()
             xml_root = xml_tree.getroot()
-            
-            for i, note_id in enumerate(folder['notes']):
-                try:
-                    # 每处理20条笔记检查一次登录状态
-                    if i > 0 and i % 20 == 0:
-                        self.logger.info(f"已处理 {i} 条笔记，检查登录状态...")
-                        if not self.check_login_status():
-                            raise NetworkError("登录已过期，请重新获取cookies")
+
+            try:
+                for i, note_id in enumerate(folder['notes']):
+                    try:
+                        # 每处理20条笔记检查一次登录状态
+                        if i > 0 and i % 20 == 0:
+                            self.logger.info(f"已处理 {i} 条笔记，检查登录状态...")
+                            if not self.check_login_status():
+                                raise NetworkError("登录已过期，请重新获取cookies")
+                        
+                        # 处理单个笔记
+                        if self.process_single_note(note_id, xml_root):
+                            successful_notes += 1
+                            current_chunk_notes += 1
+                            total_exported += 1
+                        else:
+                            total_failed += 1
+                        
+                        # 输出结构化进度信息
+                        if self.config.progress_report:
+                            progress_data = {
+                                "type": "progress",
+                                "current": i + 1,
+                                "total": notes_count,
+                                "folder": folder_name,
+                                "successful": successful_notes,
+                                "failed": total_failed,
+                                "percentage": round((i + 1) / notes_count * 100, 2)
+                            }
+                            print(f"PROGRESS:{json.dumps(progress_data)}")
+                        # 达到分块大小时保存当前文件
+                        if current_chunk_notes >= self.config.chunk_size and i < notes_count - 1:
+                            # 保存当前分块
+                            if current_chunk_notes > 0:
+                                filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
+                                chunk_info = {'count': current_chunk_notes}
+                                self._save_chunk(xml_tree, filename, chunk_info)
+
+                            # 清理并创建新的XML文档用于下一分块
+                            del xml_tree
+                            del xml_root
+                            gc.collect()  # 主动进行垃圾回收
+
+                            xml_tree = self.create_enex_document()
+                            xml_root = xml_tree.getroot()
+                            current_chunk_notes = 0
+                            chunk_number += 1
                     
-                    # 处理单个笔记
-                    if self.process_single_note(note_id, xml_root):
-                        successful_notes += 1
-                        current_chunk_notes += 1
-                        total_exported += 1
-                    else:
+                    except NetworkError as e:
+                        # 401 认证错误，立即终止导出
+                        if "过期" in str(e) or "401" in str(e):
+                            self.logger.error(f"登录已过期，导出终止。已完成 {total_exported} 条笔记")
+                            # 输出最终进度信息
+                            if self.config.progress_report:
+                                progress_data = {
+                                    "type": "progress",
+                                    "current": i + 1,
+                                    "total": notes_count,
+                                    "folder": folder_name,
+                                    "successful": successful_notes,
+                                    "failed": total_failed,
+                                    "percentage": round((i + 1) / notes_count * 100, 2),
+                                    "status": "authentication_failed"
+                                }
+                                print(f"PROGRESS:{json.dumps(progress_data)}")
+                            raise
+                        self.logger.error(f"处理笔记 {note_id} 时发生网络错误: {e}")
                         total_failed += 1
-                    
-                    # 输出结构化进度信息
-                    if self.config.progress_report:
-                        progress_data = {
-                            "type": "progress",
-                            "current": i + 1,
-                            "total": notes_count,
-                            "folder": folder_name,
-                            "successful": successful_notes,
-                            "failed": total_failed,
-                            "percentage": round((i + 1) / notes_count * 100, 2)
-                        }
-                        print(f"PROGRESS:{json.dumps(progress_data)}")
-                    # 达到分块大小时保存当前文件
-                    if current_chunk_notes >= self.config.chunk_size and i < notes_count - 1:
-                        # 保存当前分块
-                        if current_chunk_notes > 0:
-                            filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
-                            chunk_info = {'count': current_chunk_notes}
-                            self._save_chunk(xml_tree, filename, chunk_info)
+                    except Exception as e:
+                        self.logger.error(f"处理笔记 {note_id} 时发生错误: {e}", exc_info=True)
+                        total_failed += 1
 
-                        # 清理并创建新的XML文档用于下一分块
-                        del xml_tree
-                        del xml_root
-                        gc.collect()  # 主动进行垃圾回收
+                    finally:
+                        progress.update(1)
 
-                        xml_tree = self.create_enex_document()
-                        xml_root = xml_tree.getroot()
-                        current_chunk_notes = 0
-                        chunk_number += 1
-                
-                except NetworkError as e:
-                    # 401 认证错误，立即终止导出
-                    if "过期" in str(e) or "401" in str(e):
-                        self.logger.error(f"登录已过期，导出终止。已完成 {total_exported} 条笔记")
-                        raise
-                    self.logger.error(f"处理笔记 {note_id} 时发生网络错误: {e}")
-                    total_failed += 1
+                # 保存最后一个分块（或唯一的分块）
+                if current_chunk_notes > 0:
+                    if notes_count > self.config.chunk_size:
+                        filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
+                    else:
+                        filename = f"{self._sanitize_filename(folder_name)}.enex"
+
+                    chunk_info = {'count': current_chunk_notes}
+                    self._save_chunk(xml_tree, filename, chunk_info)
+
+            finally:
+                # 确保进度条总是被正确关闭，即使发生异常
+                try:
+                    progress.close()
                 except Exception as e:
-                    self.logger.error(f"处理笔记 {note_id} 时发生错误: {e}", exc_info=True)
-                    total_failed += 1
+                    self.logger.warning(f"关闭进度条时出错: {e}")
 
-                finally:
-                    progress.update(1)
+                # 清理资源
+                try:
+                    if 'xml_tree' in locals():
+                        del xml_tree
+                    if 'xml_root' in locals():
+                        del xml_root
+                except Exception as e:
+                    self.logger.warning(f"清理资源时出错: {e}")
 
-            progress.close()
-            
-            # 保存最后一个分块（或唯一的分块）
-            if current_chunk_notes > 0:
-                if notes_count > self.config.chunk_size:
-                    filename = f"{self._sanitize_filename(folder_name)}_part{chunk_number:02d}.enex"
-                else:
-                    filename = f"{self._sanitize_filename(folder_name)}.enex"
-                
-                chunk_info = {'count': current_chunk_notes}
-                self._save_chunk(xml_tree, filename, chunk_info)
-            
-            # 清理资源
-            del xml_tree
-            del xml_root
-
-            # 定期进行垃圾回收以避免内存泄漏
-            if folder_id % 3 == 0:  # 每处理 3 个文件夹进行一次回收
-                gc.collect()
+                # 定期进行垃圾回收以避免内存泄漏
+                if folder_count % 3 == 0:  # 每处理 3 个文件夹进行一次回收
+                    gc.collect()
 
             self.logger.info(f"文件夹 {folder_name} 导出完成 (成功 {successful_notes}/{notes_count} 条笔记)")
         
@@ -904,7 +935,7 @@ class XiaomiNoteExporter:
         
         try:
             # 获取笔记列表
-            note_list = self.download_notes_recursive()
+            note_list = self.download_notes_list()
             total_notes = len(note_list)
             self.logger.info(f"共获取到 {total_notes} 条笔记")
             
@@ -962,12 +993,8 @@ class XiaomiNoteExporter:
         
         try:
             # 下载笔记列表
-<<<<<<< HEAD
-            self.download_notes_list()
-=======
             self.logger.info("开始获取笔记列表...")
-            self.download_notes_recursive()
->>>>>>> 4a748db78a27ae867da590512be3aefe0568c4c9
+            self.download_notes_list()
             
             # 笔记列表获取完成，更新进度
             if self.config.progress_report:

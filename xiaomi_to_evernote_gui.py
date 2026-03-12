@@ -19,7 +19,7 @@ class XiaomiNoteExporterGUI:
     
     def __init__(self, root):
         self.root = root
-        self.root.title("小米笔记导出工具 - v1.0.5")
+        self.root.title("小米笔记导出工具 - v1.0.6")
         self.root.geometry("600x500")
         self.root.resizable(True, True)
         
@@ -211,23 +211,24 @@ class XiaomiNoteExporterGUI:
                 return f"{size_bytes:.2f} {unit}"
             size_bytes /= 1024.0
         return f"{size_bytes:.2f} PB"
-    
-    def detect_images_size(self):
-        """检测导出目录中图片的总大小"""
+
+    def detect_export_size(self):
+        """检测导出目录中 enex 文件的总大小"""
         exported_dir = self.default_config['export']['output_dir']
         total_size = 0
-        
+        file_count = 0
+
         if os.path.exists(exported_dir):
             for root, dirs, files in os.walk(exported_dir):
                 for file in files:
-                    if file.lower().endswith(('.jpg', '.jpeg', '.png', '.gif', '.bmp')):
+                    if file.lower().endswith('.enex'):
                         file_path = os.path.join(root, file)
                         total_size += os.path.getsize(file_path)
-        
+                        file_count += 1
+
         self.total_images_size = total_size
-        self.add_log(f"检测到图片总容量: {self.format_size(total_size)}")
-        self.update_capacity_suggestion()
-    
+        self.add_log(f"导出完成: {file_count} 个文件, 总大小: {self.format_size(total_size)}")
+
     def start_export(self):
         """开始导出"""
         cookies = self.cookies_text.get(1.0, tk.END).strip()
@@ -345,7 +346,7 @@ class XiaomiNoteExporterGUI:
                     self.progress_label.config(text="导出成功")
                     
                     # 检测图片容量
-                    self.detect_images_size()
+                    self.detect_export_size()
                 else:
                     # 如果主程序文件不存在，显示错误
                     raise Exception(f"找不到主程序文件: {main_script_path}")
@@ -430,7 +431,7 @@ class XiaomiNoteExporterGUI:
                     self.progress_label.config(text="导出成功")
                     
                     # 检测图片容量
-                    self.detect_images_size()
+                    self.detect_export_size()
                 else:
                     self.add_log(f"导出失败，返回码: {process.returncode}")
                     self.progress_label.config(text="导出失败")
