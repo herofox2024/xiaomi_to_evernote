@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-å°ç±³ç¬”è®°å¯¼å‡ºå·¥å…· - GUIç‰ˆæœ¬
+Ğ¡Ã×±Ê¼Çµ¼³ö¹¤¾ß - GUI°æ±¾
 """
 
 import tkinter as tk
@@ -15,15 +15,15 @@ from pathlib import Path
 
 
 class XiaomiNoteExporterGUI:
-    """å°ç±³ç¬”è®°å¯¼å‡ºå·¥å…·GUIç•Œé¢"""
+    """Ğ¡Ã×±Ê¼Çµ¼³ö¹¤¾ßGUI½çÃæ"""
     
     def __init__(self, root):
         self.root = root
-        self.root.title("å°ç±³ç¬”è®°å¯¼å‡ºå·¥å…· - v1.0.6")
+        self.root.title("Ğ¡Ã×±Ê¼Çµ¼³ö¹¤¾ß - v1.0.6")
         self.root.geometry("600x500")
         self.root.resizable(True, True)
         
-        # é…ç½®æ–‡ä»¶è·¯å¾„
+        # ÅäÖÃÎÄ¼şÂ·¾¶
         self.config_file = "config.yaml"
         self.default_config = {
             "export": {
@@ -39,36 +39,36 @@ class XiaomiNoteExporterGUI:
             }
         }
         
-        # å½“å‰çŠ¶æ€
+        # µ±Ç°×´Ì¬
         self.is_exporting = False
         self.selected_chunk_size = 50
         self.total_images_size = 0
         
-        # åˆå§‹åŒ–ç•Œé¢
+        # ³õÊ¼»¯½çÃæ
         self.setup_ui()
         
-        # åŠ è½½é…ç½®
+        # ¼ÓÔØÅäÖÃ
         self.load_config()
         
-        # è°ƒæ•´çª—å£å¤§å°ï¼Œå¢åŠ é«˜åº¦ï¼Œç¡®ä¿æ—¥å¿—æ¡†æœ‰è¶³å¤Ÿç©ºé—´æ˜¾ç¤º
+        # µ÷Õû´°¿Ú´óĞ¡£¬Ôö¼Ó¸ß¶È£¬È·±£ÈÕÖ¾¿òÓĞ×ã¹»¿Õ¼äÏÔÊ¾
         self.root.geometry("750x800")
         self.root.minsize(750, 800)
         
     def setup_ui(self):
-        """è®¾ç½®UIç•Œé¢"""
-        # åˆ›å»ºä¸»æ¡†æ¶
+        """ÉèÖÃUI½çÃæ"""
+        # ´´½¨Ö÷¿ò¼Ü
         main_frame = ttk.Frame(self.root, padding="20")
         main_frame.pack(fill=tk.BOTH, expand=True)
         
-        # æ ‡é¢˜
-        title_label = ttk.Label(main_frame, text="å°ç±³ç¬”è®°å¯¼å‡ºå·¥å…·", font=('Arial', 16, 'bold'))
+        # ±êÌâ
+        title_label = ttk.Label(main_frame, text="Ğ¡Ã×±Ê¼Çµ¼³ö¹¤¾ß", font=('Arial', 16, 'bold'))
         title_label.pack(pady=10)
         
-        # é…ç½®åŒºåŸŸ
-        config_frame = ttk.LabelFrame(main_frame, text="å¯¼å‡ºé…ç½®", padding="10")
+        # ÅäÖÃÇøÓò
+        config_frame = ttk.LabelFrame(main_frame, text="µ¼³öÅäÖÃ", padding="10")
         config_frame.pack(fill=tk.X, pady=10)
         
-        # cookiesè¾“å…¥åŒºåŸŸ
+        # cookiesÊäÈëÇøÓò
         cookies_frame = ttk.Frame(config_frame)
         cookies_frame.pack(fill=tk.X, pady=5)
         
@@ -77,35 +77,35 @@ class XiaomiNoteExporterGUI:
         self.cookies_text = tk.Text(cookies_frame, height=5, wrap=tk.WORD)
         self.cookies_text.pack(fill=tk.X, padx=5, pady=5)
         
-        # éªŒè¯cookieæŒ‰é’®
+        # ÑéÖ¤cookie°´Å¥
         validate_frame = ttk.Frame(cookies_frame)
         validate_frame.pack(fill=tk.X, pady=5)
         
-        self.validate_button = ttk.Button(validate_frame, text="éªŒè¯Cookieå¹¶ä¼°ç®—å®¹é‡", command=self.validate_cookies)
+        self.validate_button = ttk.Button(validate_frame, text="ÑéÖ¤Cookie²¢¹ÀËãÈİÁ¿", command=self.validate_cookies)
         self.validate_button.pack(side=tk.LEFT, padx=5)
         
-        # å®¹é‡ä¼°ç®—ç»“æœæ˜¾ç¤º
+        # ÈİÁ¿¹ÀËã½á¹ûÏÔÊ¾
         self.capacity_result_var = tk.StringVar(value="")
         self.capacity_label = ttk.Label(validate_frame, textvariable=self.capacity_result_var, foreground="blue", font=('Arial', 10, 'bold'))
         self.capacity_label.pack(side=tk.RIGHT, padx=5)
         
-        # æç¤ºä¿¡æ¯
-        ttk.Label(cookies_frame, text="å¦‚ä½•è·å–Cookies:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, padx=5, pady=5)
+        # ÌáÊ¾ĞÅÏ¢
+        ttk.Label(cookies_frame, text="ÈçºÎ»ñÈ¡Cookies:", font=('Arial', 10, 'bold')).pack(anchor=tk.W, padx=5, pady=5)
         
         cookie_hint = (
-            "1. åœ¨Chromeæµè§ˆå™¨ä¸­ç™»å½• https://i.mi.com/note/h5#/\n"
-            "2. æŒ‰F12æ‰“å¼€å¼€å‘è€…å·¥å…·\n"
-            "3. åˆ‡æ¢åˆ°Networkæ ‡ç­¾ï¼Œåˆ·æ–°é¡µé¢\n"
-            "4. æ‰¾åˆ°imi.comçš„è¯·æ±‚ï¼Œå¤åˆ¶Cookieå­—æ®µçš„å€¼"
+            "1. ÔÚChromeä¯ÀÀÆ÷ÖĞµÇÂ¼ https://i.mi.com/note/h5#/\n"
+            "2. °´F12´ò¿ª¿ª·¢Õß¹¤¾ß\n"
+            "3. ÇĞ»»µ½Network±êÇ©£¬Ë¢ĞÂÒ³Ãæ\n"
+            "4. ÕÒµ½imi.comµÄÇëÇó£¬¸´ÖÆCookie×Ö¶ÎµÄÖµ"
         )
         ttk.Label(cookies_frame, text=cookie_hint, font=('Arial', 9), justify=tk.LEFT).pack(anchor=tk.W, padx=5, pady=5)
         
-        # å¯¼å‡ºé…ç½®åŒºåŸŸ
+        # µ¼³öÅäÖÃÇøÓò
         export_config_frame = ttk.Frame(config_frame)
         export_config_frame.pack(fill=tk.X, pady=10)
         
-        # å¯¼å‡ºæ¡æ•°è®¾ç½® - åˆå§‹ç¦ç”¨ï¼ŒéªŒè¯cookieåå¯ç”¨
-        ttk.Label(export_config_frame, text="æ¯æ‰¹å¯¼å‡ºæ¡æ•°:").pack(side=tk.LEFT, padx=5)
+        # µ¼³öÌõÊıÉèÖÃ - ³õÊ¼½ûÓÃ£¬ÑéÖ¤cookieºóÆôÓÃ
+        ttk.Label(export_config_frame, text="Ã¿Åúµ¼³öÌõÊı:").pack(side=tk.LEFT, padx=5)
         
         self.chunk_size_var = tk.StringVar(value="50")
         self.chunk_size_combo = ttk.Combobox(export_config_frame, textvariable=self.chunk_size_var, width=10, state="disabled")
@@ -113,47 +113,47 @@ class XiaomiNoteExporterGUI:
         self.chunk_size_combo.pack(side=tk.LEFT, padx=5)
         self.chunk_size_combo.bind("<<ComboboxSelected>>", self.on_chunk_size_change)
         
-        # å¯¼å‡ºæŒ‰é’®åŒºåŸŸ
+        # µ¼³ö°´Å¥ÇøÓò
         button_frame = ttk.Frame(config_frame)
         button_frame.pack(fill=tk.X, pady=10)
         
-        self.export_button = ttk.Button(button_frame, text="å¼€å§‹å¯¼å‡º", command=self.start_export, state=tk.DISABLED)
+        self.export_button = ttk.Button(button_frame, text="¿ªÊ¼µ¼³ö", command=self.start_export, state=tk.DISABLED)
         self.export_button.pack(side=tk.LEFT, padx=5)
         
-        self.stop_button = ttk.Button(button_frame, text="åœæ­¢å¯¼å‡º", command=self.stop_export, state=tk.DISABLED)
+        self.stop_button = ttk.Button(button_frame, text="Í£Ö¹µ¼³ö", command=self.stop_export, state=tk.DISABLED)
         self.stop_button.pack(side=tk.LEFT, padx=5)
         
-        self.clear_button = ttk.Button(button_frame, text="æ¸…ç©º", command=self.clear_fields)
+        self.clear_button = ttk.Button(button_frame, text="Çå¿Õ", command=self.clear_fields)
         self.clear_button.pack(side=tk.LEFT, padx=5)
         
-        # è¿›åº¦åŒºåŸŸ
-        progress_frame = ttk.LabelFrame(main_frame, text="å¯¼å‡ºè¿›åº¦", padding="10")
+        # ½ø¶ÈÇøÓò
+        progress_frame = ttk.LabelFrame(main_frame, text="µ¼³ö½ø¶È", padding="10")
         progress_frame.pack(fill=tk.BOTH, expand=True, pady=10, anchor=tk.S)
         
-        # è¿›åº¦æ¡
+        # ½ø¶ÈÌõ
         self.progress_var = tk.DoubleVar()
         self.progress_bar = ttk.Progressbar(progress_frame, variable=self.progress_var, maximum=100, mode='determinate')
         self.progress_bar.pack(fill=tk.X, pady=10)
         
-        # è¿›åº¦æ ‡ç­¾
-        self.progress_label = ttk.Label(progress_frame, text="å‡†å¤‡å°±ç»ª", font=('Arial', 10, 'bold'))
+        # ½ø¶È±êÇ©
+        self.progress_label = ttk.Label(progress_frame, text="×¼±¸¾ÍĞ÷", font=('Arial', 10, 'bold'))
         self.progress_label.pack(pady=5)
         
-        # æ—¥å¿—è¾“å‡ºåŒºåŸŸ
+        # ÈÕÖ¾Êä³öÇøÓò
         log_frame = ttk.Frame(progress_frame)
         log_frame.pack(fill=tk.BOTH, expand=True, pady=10)
         
-        # æ—¥å¿—è¾“å‡º
+        # ÈÕÖ¾Êä³ö
         self.log_text = tk.Text(log_frame, wrap=tk.WORD, state=tk.DISABLED, font=('Arial', 9))
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         
-        # æ»šåŠ¨æ¡
+        # ¹ö¶¯Ìõ
         scrollbar = ttk.Scrollbar(log_frame, orient=tk.VERTICAL, command=self.log_text.yview)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         self.log_text.configure(yscrollcommand=scrollbar.set)
     
     def load_config(self):
-        """åŠ è½½é…ç½®æ–‡ä»¶"""
+        """¼ÓÔØÅäÖÃÎÄ¼ş"""
         if os.path.exists(self.config_file):
             try:
                 with open(self.config_file, 'r', encoding='utf-8') as f:
@@ -165,47 +165,47 @@ class XiaomiNoteExporterGUI:
                     self.chunk_size_var.set(str(chunk_size))
                     self.selected_chunk_size = chunk_size
                     
-                self.add_log(f"é…ç½®æ–‡ä»¶åŠ è½½æˆåŠŸ: {self.config_file}")
+                self.add_log(f"ÅäÖÃÎÄ¼ş¼ÓÔØ³É¹¦: {self.config_file}")
             except Exception as e:
-                self.add_log(f"é…ç½®æ–‡ä»¶åŠ è½½å¤±è´¥: {e}")
+                self.add_log(f"ÅäÖÃÎÄ¼ş¼ÓÔØÊ§°Ü: {e}")
                 self.save_config()
         else:
             self.save_config()
     
     def save_config(self):
-        """ä¿å­˜é…ç½®æ–‡ä»¶"""
+        """±£´æÅäÖÃÎÄ¼ş"""
         try:
             import yaml
             with open(self.config_file, 'w', encoding='utf-8') as f:
                 yaml.dump(self.default_config, f, default_flow_style=False, allow_unicode=True)
             
-            self.add_log(f"é…ç½®æ–‡ä»¶ä¿å­˜æˆåŠŸ: {self.config_file}")
+            self.add_log(f"ÅäÖÃÎÄ¼ş±£´æ³É¹¦: {self.config_file}")
         except Exception as e:
-            self.add_log(f"é…ç½®æ–‡ä»¶ä¿å­˜å¤±è´¥: {e}")
+            self.add_log(f"ÅäÖÃÎÄ¼ş±£´æÊ§°Ü: {e}")
     
     def on_chunk_size_change(self, event):
-        """å¯¼å‡ºæ¡æ•°å˜åŒ–äº‹ä»¶"""
+        """µ¼³öÌõÊı±ä»¯ÊÂ¼ş"""
         try:
             self.selected_chunk_size = int(self.chunk_size_var.get())
-            self.add_log(f"å·²è®¾ç½®æ¯æ‰¹å¯¼å‡ºæ¡æ•°: {self.selected_chunk_size}")
+            self.add_log(f"ÒÑÉèÖÃÃ¿Åúµ¼³öÌõÊı: {self.selected_chunk_size}")
             
-            # æ ¹æ®æ¡æ•°å»ºè®®å®¹é‡
+            # ¸ù¾İÌõÊı½¨ÒéÈİÁ¿
             self.update_capacity_suggestion()
         except ValueError:
-            self.add_log("æ— æ•ˆçš„å¯¼å‡ºæ¡æ•°")
+            self.add_log("ÎŞĞ§µÄµ¼³öÌõÊı")
     
     def update_capacity_suggestion(self):
-        """æ›´æ–°å®¹é‡å»ºè®®"""
-        # ç®€å•çš„å®¹é‡ä¼°ç®—
-        estimated_size = self.selected_chunk_size * 5  # æ¯æ¡ç¬”è®°çº¦5MB
-        self.capacity_label.config(text=f"ä¼°ç®—å®¹é‡: {estimated_size}MB")
+        """¸üĞÂÈİÁ¿½¨Òé"""
+        # ¼òµ¥µÄÈİÁ¿¹ÀËã
+        estimated_size = self.selected_chunk_size * 5  # Ã¿Ìõ±Ê¼ÇÔ¼5MB
+        self.capacity_label.config(text=f"¹ÀËãÈİÁ¿: {estimated_size}MB")
         
-        # å¦‚æœå›¾ç‰‡å®¹é‡è¶…è¿‡5Gï¼Œå»ºè®®å¢åŠ æ¡æ•°
+        # Èç¹ûÍ¼Æ¬ÈİÁ¿³¬¹ı5G£¬½¨ÒéÔö¼ÓÌõÊı
         if self.total_images_size > 5 * 1024 * 1024 * 1024:  # 5GB
-            self.capacity_label.config(text=f"å›¾ç‰‡æ€»å®¹é‡: {self.format_size(self.total_images_size)}ï¼Œå»ºè®®å¢åŠ å¯¼å‡ºæ¡æ•°")
+            self.capacity_label.config(text=f"Í¼Æ¬×ÜÈİÁ¿: {self.format_size(self.total_images_size)}£¬½¨ÒéÔö¼Óµ¼³öÌõÊı")
     
     def format_size(self, size_bytes):
-        """æ ¼å¼åŒ–æ–‡ä»¶å¤§å°"""
+        """¸ñÊ½»¯ÎÄ¼ş´óĞ¡"""
         for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
             if size_bytes < 1024.0:
                 return f"{size_bytes:.2f} {unit}"
@@ -213,7 +213,7 @@ class XiaomiNoteExporterGUI:
         return f"{size_bytes:.2f} PB"
 
     def detect_export_size(self):
-        """æ£€æµ‹å¯¼å‡ºç›®å½•ä¸­ enex æ–‡ä»¶çš„æ€»å¤§å°"""
+        """¼ì²âµ¼³öÄ¿Â¼ÖĞ enex ÎÄ¼şµÄ×Ü´óĞ¡"""
         exported_dir = self.default_config['export']['output_dir']
         total_size = 0
         file_count = 0
@@ -227,84 +227,84 @@ class XiaomiNoteExporterGUI:
                         file_count += 1
 
         self.total_images_size = total_size
-        self.add_log(f"å¯¼å‡ºå®Œæˆ: {file_count} ä¸ªæ–‡ä»¶, æ€»å¤§å°: {self.format_size(total_size)}")
+        self.add_log(f"µ¼³öÍê³É: {file_count} ¸öÎÄ¼ş, ×Ü´óĞ¡: {self.format_size(total_size)}")
 
     def start_export(self):
-        """å¼€å§‹å¯¼å‡º"""
+        """¿ªÊ¼µ¼³ö"""
         cookies = self.cookies_text.get(1.0, tk.END).strip()
         
         if not cookies:
-            messagebox.showerror("é”™è¯¯", "è¯·è¾“å…¥æœ‰æ•ˆçš„Cookies")
+            messagebox.showerror("´íÎó", "ÇëÊäÈëÓĞĞ§µÄCookies")
             return
         
         if self.is_exporting:
-            messagebox.showwarning("è­¦å‘Š", "å¯¼å‡ºæ­£åœ¨è¿›è¡Œä¸­")
+            messagebox.showwarning("¾¯¸æ", "µ¼³öÕıÔÚ½øĞĞÖĞ")
             return
         
-        # æ›´æ–°æŒ‰é’®çŠ¶æ€
+        # ¸üĞÂ°´Å¥×´Ì¬
         self.export_button.config(state=tk.DISABLED)
         self.stop_button.config(state=tk.NORMAL)
         self.is_exporting = True
         
-        # æ¸…ç©ºæ—¥å¿—
+        # Çå¿ÕÈÕÖ¾
         self.log_text.config(state=tk.NORMAL)
         self.log_text.delete(1.0, tk.END)
         self.log_text.config(state=tk.DISABLED)
         
-        # æ›´æ–°è¿›åº¦
+        # ¸üĞÂ½ø¶È
         self.progress_var.set(0)
-        self.progress_label.config(text="å¼€å§‹å¯¼å‡º...")
+        self.progress_label.config(text="¿ªÊ¼µ¼³ö...")
         
-        # ä¿å­˜é…ç½®
+        # ±£´æÅäÖÃ
         self.save_config()
         
-        # å¯åŠ¨å¯¼å‡ºçº¿ç¨‹
+        # Æô¶¯µ¼³öÏß³Ì
         export_thread = threading.Thread(target=self.run_export, args=(cookies,))
         export_thread.daemon = True
         export_thread.start()
     
     def stop_export(self):
-        """åœæ­¢å¯¼å‡º"""
+        """Í£Ö¹µ¼³ö"""
         if not self.is_exporting:
             return
         
         self.is_exporting = False
-        self.add_log("å¯¼å‡ºå·²åœæ­¢")
+        self.add_log("µ¼³öÒÑÍ£Ö¹")
         
-        # æ›´æ–°æŒ‰é’®çŠ¶æ€
+        # ¸üĞÂ°´Å¥×´Ì¬
         self.export_button.config(state=tk.NORMAL)
         self.stop_button.config(state=tk.DISABLED)
         
-        self.progress_label.config(text="å¯¼å‡ºå·²åœæ­¢")
+        self.progress_label.config(text="µ¼³öÒÑÍ£Ö¹")
     
     def run_export(self, cookies):
-        """è¿è¡Œå¯¼å‡ºå‘½ä»¤"""
+        """ÔËĞĞµ¼³öÃüÁî"""
         try:
             import sys
             import os
             
-            # æ£€æŸ¥æ˜¯å¦æ˜¯æ‰“åŒ…ç¯å¢ƒ
+            # ¼ì²éÊÇ·ñÊÇ´ò°ü»·¾³
             is_packaged = getattr(sys, 'frozen', False)
             
             if is_packaged:
-                # æ‰“åŒ…ç¯å¢ƒï¼šç›´æ¥å¯¼å…¥å¹¶è°ƒç”¨ä¸»ç¨‹åºçš„åŠŸèƒ½
-                self.add_log("æ£€æµ‹åˆ°æ‰“åŒ…ç¯å¢ƒï¼Œç›´æ¥è°ƒç”¨ä¸»ç¨‹åºåŠŸèƒ½")
+                # ´ò°ü»·¾³£ºÖ±½Óµ¼Èë²¢µ÷ÓÃÖ÷³ÌĞòµÄ¹¦ÄÜ
+                self.add_log("¼ì²âµ½´ò°ü»·¾³£¬Ö±½Óµ÷ÓÃÖ÷³ÌĞò¹¦ÄÜ")
                 
-                # åŠ¨æ€å¯¼å…¥ä¸»ç¨‹åºæ¨¡å—
+                # ¶¯Ì¬µ¼ÈëÖ÷³ÌĞòÄ£¿é
                 import importlib.util
                 
-                # è·å–ä¸»ç¨‹åºæ–‡ä»¶è·¯å¾„
+                # »ñÈ¡Ö÷³ÌĞòÎÄ¼şÂ·¾¶
                 main_script_path = os.path.join(os.path.dirname(sys.executable), "xiaomi_to_evernote.py")
                 
                 if os.path.exists(main_script_path):
-                    # å¯¼å…¥ä¸»ç¨‹åºæ¨¡å—
+                    # µ¼ÈëÖ÷³ÌĞòÄ£¿é
                     spec = importlib.util.spec_from_file_location("xiaomi_to_evernote", main_script_path)
                     main_module = importlib.util.module_from_spec(spec)
                     sys.modules["xiaomi_to_evernote"] = main_module
                     spec.loader.exec_module(main_module)
                     
-                    # åˆ›å»ºå¯¼å‡ºå™¨å®ä¾‹å¹¶è°ƒç”¨å¯¼å‡ºæ–¹æ³•
-                    # è¿™é‡Œéœ€è¦æ¨¡æ‹Ÿå‘½ä»¤è¡Œå‚æ•°
+                    # ´´½¨µ¼³öÆ÷ÊµÀı²¢µ÷ÓÃµ¼³ö·½·¨
+                    # ÕâÀïĞèÒªÄ£ÄâÃüÁîĞĞ²ÎÊı
                     class MockArgs:
                         def __init__(self, cookies, chunk_size):
                             self.cookies = cookies
@@ -320,7 +320,7 @@ class XiaomiNoteExporterGUI:
                     
                     args = MockArgs(cookies, self.selected_chunk_size)
                     
-                    # åˆ›å»ºé…ç½®
+                    # ´´½¨ÅäÖÃ
                     config = main_module.ExportConfig()
                     config.chunk_size = args.chunk_size
                     config.output_dir = args.output_dir
@@ -330,28 +330,28 @@ class XiaomiNoteExporterGUI:
                     config.enable_progress_bar = not args.no_progress
                     config.progress_report = args.progress_report
                     
-                    # åˆ›å»ºå¯¼å‡ºå™¨å¹¶æ‰§è¡Œå¯¼å‡º
+                    # ´´½¨µ¼³öÆ÷²¢Ö´ĞĞµ¼³ö
                     exporter = main_module.XiaomiNoteExporter(
                         cookies_str=args.cookies,
                         config=config
                     )
                     
-                    # ç›´æ¥è°ƒç”¨å¯¼å‡ºæ–¹æ³•ï¼Œä¸é‡å®šå‘è¾“å‡º
-                    # é¿å…é‡å®šå‘sys.stdoutå¯¼è‡´æ—¥å¿—ç³»ç»Ÿå†™å…¥å¤±è´¥
+                    # Ö±½Óµ÷ÓÃµ¼³ö·½·¨£¬²»ÖØ¶¨ÏòÊä³ö
+                    # ±ÜÃâÖØ¶¨Ïòsys.stdoutµ¼ÖÂÈÕÖ¾ÏµÍ³Ğ´ÈëÊ§°Ü
                     exporter.export_notes()
                     
-                    # å¤„ç†è¾“å‡ºï¼Œæ›´æ–°è¿›åº¦
-                    self.add_log("å¯¼å‡ºæˆåŠŸå®Œæˆï¼")
+                    # ´¦ÀíÊä³ö£¬¸üĞÂ½ø¶È
+                    self.add_log("µ¼³ö³É¹¦Íê³É£¡")
                     self.progress_var.set(100)
-                    self.progress_label.config(text="å¯¼å‡ºæˆåŠŸ")
+                    self.progress_label.config(text="µ¼³ö³É¹¦")
                     
-                    # æ£€æµ‹å›¾ç‰‡å®¹é‡
+                    # ¼ì²âÍ¼Æ¬ÈİÁ¿
                     self.detect_export_size()
                 else:
-                    # å¦‚æœä¸»ç¨‹åºæ–‡ä»¶ä¸å­˜åœ¨ï¼Œæ˜¾ç¤ºé”™è¯¯
-                    raise Exception(f"æ‰¾ä¸åˆ°ä¸»ç¨‹åºæ–‡ä»¶: {main_script_path}")
+                    # Èç¹ûÖ÷³ÌĞòÎÄ¼ş²»´æÔÚ£¬ÏÔÊ¾´íÎó
+                    raise Exception(f"ÕÒ²»µ½Ö÷³ÌĞòÎÄ¼ş: {main_script_path}")
             else:
-                # å¼€å‘ç¯å¢ƒï¼šä½¿ç”¨Pythonè§£é‡Šå™¨æ‰§è¡Œä¸»ç¨‹åº
+                # ¿ª·¢»·¾³£ºÊ¹ÓÃPython½âÊÍÆ÷Ö´ĞĞÖ÷³ÌĞò
                 cmd = [
                     'python', 'xiaomi_to_evernote.py',
                     '--cookies', cookies,
@@ -360,9 +360,9 @@ class XiaomiNoteExporterGUI:
                     '--progress-report'
                 ]
                 
-                self.add_log(f"æ‰§è¡Œå‘½ä»¤: {' '.join(cmd)}")
+                self.add_log(f"Ö´ĞĞÃüÁî: {' '.join(cmd)}")
                 
-                # æ‰§è¡Œå‘½ä»¤
+                # Ö´ĞĞÃüÁî
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -371,7 +371,7 @@ class XiaomiNoteExporterGUI:
                     bufsize=1
                 )
                 
-                # è¯»å–è¾“å‡º
+                # ¶ÁÈ¡Êä³ö
                 line_count = 0
                 for line in iter(process.stdout.readline, ''):
                     if not self.is_exporting:
@@ -383,10 +383,10 @@ class XiaomiNoteExporterGUI:
                         self.add_log(line)
                         line_count += 1
                         
-                        # æ£€æŸ¥æ˜¯å¦æ˜¯è¿›åº¦ä¿¡æ¯
+                        # ¼ì²éÊÇ·ñÊÇ½ø¶ÈĞÅÏ¢
                         if line.startswith("PROGRESS:"):
                             try:
-                                # ç¡®ä¿åªå¤„ç†æœ‰æ•ˆçš„JSONæ ¼å¼
+                                # È·±£Ö»´¦ÀíÓĞĞ§µÄJSON¸ñÊ½
                                 if "{" in line and "}" in line:
                                     progress_json = line[9:]
                                     progress_data = json.loads(progress_json)
@@ -394,31 +394,31 @@ class XiaomiNoteExporterGUI:
                                         percentage = progress_data.get("percentage", 0)
                                         self.progress_var.set(percentage)
                                         
-                                        # æ›´æ–°è¿›åº¦æ ‡ç­¾
+                                        # ¸üĞÂ½ø¶È±êÇ©
                                         folder = progress_data.get('folder', '')
                                         current = progress_data.get('current', 0)
                                         total = progress_data.get('total', 0)
                                         
-                                        if folder == "å‡†å¤‡ä¸­":
+                                        if folder == "×¼±¸ÖĞ":
                                             self.progress_label.config(text=f"{folder}: {current}%")
-                                        elif folder == "å®Œæˆ":
-                                            self.progress_label.config(text="å¯¼å‡ºæˆåŠŸå®Œæˆï¼")
-                                        elif folder == "å¤±è´¥":
-                                            self.progress_label.config(text="å¯¼å‡ºå¤±è´¥")
+                                        elif folder == "Íê³É":
+                                            self.progress_label.config(text="µ¼³ö³É¹¦Íê³É£¡")
+                                        elif folder == "Ê§°Ü":
+                                            self.progress_label.config(text="µ¼³öÊ§°Ü")
                                         else:
                                             self.progress_label.config(
-                                                text=f"æ­£åœ¨å¯¼å‡º {folder}: {current}/{total} ({percentage}%)"
+                                                text=f"ÕıÔÚµ¼³ö {folder}: {current}/{total} ({percentage}%)"
                                             )
                                         
-                                        # å¼ºåˆ¶æ›´æ–°UI
+                                        # Ç¿ÖÆ¸üĞÂUI
                                         self.root.update_idletasks()
                             except json.JSONDecodeError as e:
-                                self.add_log(f"è§£æè¿›åº¦ä¿¡æ¯å¤±è´¥: {line}, é”™è¯¯: {e}")
+                                self.add_log(f"½âÎö½ø¶ÈĞÅÏ¢Ê§°Ü: {line}, ´íÎó: {e}")
                             except Exception as e:
-                                self.add_log(f"å¤„ç†è¿›åº¦ä¿¡æ¯æ—¶å‘ç”Ÿé”™è¯¯: {e}")
+                                self.add_log(f"´¦Àí½ø¶ÈĞÅÏ¢Ê±·¢Éú´íÎó: {e}")
                             continue
                         
-                        # ä¼ ç»Ÿè¿›åº¦ä¼°ç®—ï¼ˆå¤‡ç”¨ï¼‰
+                        # ´«Í³½ø¶È¹ÀËã£¨±¸ÓÃ£©
                         if line_count % 10 == 0:
                             progress = min(95, line_count / 2)
                             self.progress_var.set(progress)
@@ -426,94 +426,94 @@ class XiaomiNoteExporterGUI:
                 process.wait()
                 
                 if process.returncode == 0:
-                    self.add_log("å¯¼å‡ºæˆåŠŸå®Œæˆï¼")
+                    self.add_log("µ¼³ö³É¹¦Íê³É£¡")
                     self.progress_var.set(100)
-                    self.progress_label.config(text="å¯¼å‡ºæˆåŠŸ")
+                    self.progress_label.config(text="µ¼³ö³É¹¦")
                     
-                    # æ£€æµ‹å›¾ç‰‡å®¹é‡
+                    # ¼ì²âÍ¼Æ¬ÈİÁ¿
                     self.detect_export_size()
                 else:
-                    self.add_log(f"å¯¼å‡ºå¤±è´¥ï¼Œè¿”å›ç : {process.returncode}")
-                    self.progress_label.config(text="å¯¼å‡ºå¤±è´¥")
+                    self.add_log(f"µ¼³öÊ§°Ü£¬·µ»ØÂë: {process.returncode}")
+                    self.progress_label.config(text="µ¼³öÊ§°Ü")
                     
         except Exception as e:
-            self.add_log(f"å¯¼å‡ºè¿‡ç¨‹ä¸­å‘ç”Ÿé”™è¯¯: {e}")
-            self.progress_label.config(text="å¯¼å‡ºå‡ºé”™")
+            self.add_log(f"µ¼³ö¹ı³ÌÖĞ·¢Éú´íÎó: {e}")
+            self.progress_label.config(text="µ¼³ö³ö´í")
         finally:
             self.is_exporting = False
             self.export_button.config(state=tk.NORMAL)
             self.stop_button.config(state=tk.DISABLED)
     
     def add_log(self, message):
-        """æ·»åŠ æ—¥å¿—ä¿¡æ¯"""
+        """Ìí¼ÓÈÕÖ¾ĞÅÏ¢"""
         self.log_text.config(state=tk.NORMAL)
         self.log_text.insert(tk.END, f"{message}\n")
         self.log_text.see(tk.END)
         self.log_text.config(state=tk.DISABLED)
         
-        # æ›´æ–°UI
+        # ¸üĞÂUI
         self.root.update_idletasks()
     
     def validate_cookies(self):
-        """éªŒè¯cookieså¹¶ä¼°ç®—å®¹é‡"""
+        """ÑéÖ¤cookies²¢¹ÀËãÈİÁ¿"""
         cookies = self.cookies_text.get(1.0, tk.END).strip()
         
         if not cookies:
-            messagebox.showerror("é”™è¯¯", "è¯·è¾“å…¥æœ‰æ•ˆçš„Cookies")
+            messagebox.showerror("´íÎó", "ÇëÊäÈëÓĞĞ§µÄCookies")
             return
         
-        # ç¦ç”¨éªŒè¯æŒ‰é’®ï¼Œé˜²æ­¢é‡å¤ç‚¹å‡»
+        # ½ûÓÃÑéÖ¤°´Å¥£¬·ÀÖ¹ÖØ¸´µã»÷
         self.validate_button.config(state=tk.DISABLED)
-        self.capacity_result_var.set("æ­£åœ¨éªŒè¯å’Œä¼°ç®—å®¹é‡...")
+        self.capacity_result_var.set("ÕıÔÚÑéÖ¤ºÍ¹ÀËãÈİÁ¿...")
         
-        # å¯åŠ¨éªŒè¯çº¿ç¨‹
+        # Æô¶¯ÑéÖ¤Ïß³Ì
         validate_thread = threading.Thread(target=self.run_cookie_validation, args=(cookies,))
         validate_thread.daemon = True
         validate_thread.start()
     
     def run_cookie_validation(self, cookies):
-        """è¿è¡ŒcookieséªŒè¯å’Œå®¹é‡ä¼°ç®—"""
+        """ÔËĞĞcookiesÑéÖ¤ºÍÈİÁ¿¹ÀËã"""
         try:
             import sys
             import os
             
-            # æ£€æŸ¥æ˜¯å¦æ˜¯æ‰“åŒ…ç¯å¢ƒ
+            # ¼ì²éÊÇ·ñÊÇ´ò°ü»·¾³
             is_packaged = getattr(sys, 'frozen', False)
             
             if is_packaged:
-                # æ‰“åŒ…ç¯å¢ƒï¼šç›´æ¥å¯¼å…¥å¹¶è°ƒç”¨ä¸»ç¨‹åºçš„åŠŸèƒ½
-                self.add_log("æ£€æµ‹åˆ°æ‰“åŒ…ç¯å¢ƒï¼Œç›´æ¥è°ƒç”¨ä¸»ç¨‹åºåŠŸèƒ½")
+                # ´ò°ü»·¾³£ºÖ±½Óµ¼Èë²¢µ÷ÓÃÖ÷³ÌĞòµÄ¹¦ÄÜ
+                self.add_log("¼ì²âµ½´ò°ü»·¾³£¬Ö±½Óµ÷ÓÃÖ÷³ÌĞò¹¦ÄÜ")
                 
-                # åŠ¨æ€å¯¼å…¥ä¸»ç¨‹åºæ¨¡å—
+                # ¶¯Ì¬µ¼ÈëÖ÷³ÌĞòÄ£¿é
                 import importlib.util
                 import tempfile
                 
-                # åœ¨æ‰“åŒ…ç¯å¢ƒä¸­ï¼Œæˆ‘ä»¬éœ€è¦å°†ä¸»ç¨‹åºä½œä¸ºæ¨¡å—å¯¼å…¥
-                # è¿™é‡Œä½¿ç”¨ä¸€ä¸ªä¸´æ—¶è§£å†³æ–¹æ¡ˆï¼Œå°†ä¸»ç¨‹åºä»£ç è¯»å–å¹¶æ‰§è¡Œ
+                # ÔÚ´ò°ü»·¾³ÖĞ£¬ÎÒÃÇĞèÒª½«Ö÷³ÌĞò×÷ÎªÄ£¿éµ¼Èë
+                # ÕâÀïÊ¹ÓÃÒ»¸öÁÙÊ±½â¾ö·½°¸£¬½«Ö÷³ÌĞò´úÂë¶ÁÈ¡²¢Ö´ĞĞ
                 main_script_path = os.path.join(os.path.dirname(sys.executable), "xiaomi_to_evernote.py")
                 
                 if os.path.exists(main_script_path):
-                    # å¦‚æœä¸»ç¨‹åºæ–‡ä»¶å­˜åœ¨äºexeåŒä¸€ç›®å½•ï¼Œç›´æ¥å¯¼å…¥
+                    # Èç¹ûÖ÷³ÌĞòÎÄ¼ş´æÔÚÓÚexeÍ¬Ò»Ä¿Â¼£¬Ö±½Óµ¼Èë
                     spec = importlib.util.spec_from_file_location("xiaomi_to_evernote", main_script_path)
                     main_module = importlib.util.module_from_spec(spec)
                     sys.modules["xiaomi_to_evernote"] = main_module
                     spec.loader.exec_module(main_module)
                     
-                    # åˆ›å»ºå¯¼å‡ºå™¨å®ä¾‹å¹¶è°ƒç”¨éªŒè¯æ–¹æ³•
+                    # ´´½¨µ¼³öÆ÷ÊµÀı²¢µ÷ÓÃÑéÖ¤·½·¨
                     exporter = main_module.XiaomiNoteExporter(cookies_str=cookies)
                     exporter.validate_and_estimate()
                     
-                    # ç›´æ¥æ˜¾ç¤ºæˆåŠŸä¿¡æ¯ï¼Œä¸æ•è·è¾“å‡º
-                    self.capacity_result_var.set("CookieséªŒè¯æˆåŠŸ")
+                    # Ö±½ÓÏÔÊ¾³É¹¦ĞÅÏ¢£¬²»²¶»ñÊä³ö
+                    self.capacity_result_var.set("CookiesÑéÖ¤³É¹¦")
                     self.chunk_size_combo.set("50")
                     self.chunk_size_combo.config(state="readonly")
                     self.export_button.config(state=tk.NORMAL)
-                    self.add_log("CookieséªŒè¯æˆåŠŸï¼Œå»ºè®®æ¯æ‰¹å¯¼å‡º50æ¡ç¬”è®°")
+                    self.add_log("CookiesÑéÖ¤³É¹¦£¬½¨ÒéÃ¿Åúµ¼³ö50Ìõ±Ê¼Ç")
                 else:
-                    # å¦‚æœä¸»ç¨‹åºæ–‡ä»¶ä¸å­˜åœ¨ï¼Œæ˜¾ç¤ºé”™è¯¯
-                    raise Exception(f"æ‰¾ä¸åˆ°ä¸»ç¨‹åºæ–‡ä»¶: {main_script_path}")
+                    # Èç¹ûÖ÷³ÌĞòÎÄ¼ş²»´æÔÚ£¬ÏÔÊ¾´íÎó
+                    raise Exception(f"ÕÒ²»µ½Ö÷³ÌĞòÎÄ¼ş: {main_script_path}")
             else:
-                # å¼€å‘ç¯å¢ƒï¼šä½¿ç”¨Pythonè§£é‡Šå™¨æ‰§è¡Œä¸»ç¨‹åº
+                # ¿ª·¢»·¾³£ºÊ¹ÓÃPython½âÊÍÆ÷Ö´ĞĞÖ÷³ÌĞò
                 python_path = sys.executable
                 cmd = [
                     python_path, "xiaomi_to_evernote.py",
@@ -522,9 +522,9 @@ class XiaomiNoteExporterGUI:
                     "--log-level", "INFO"
                 ]
                 
-                self.add_log(f"æ‰§è¡ŒéªŒè¯å‘½ä»¤: {' '.join(cmd)}")
+                self.add_log(f"Ö´ĞĞÑéÖ¤ÃüÁî: {' '.join(cmd)}")
                 
-                # æ‰§è¡Œå‘½ä»¤
+                # Ö´ĞĞÃüÁî
                 process = subprocess.Popen(
                     cmd,
                     stdout=subprocess.PIPE,
@@ -533,7 +533,7 @@ class XiaomiNoteExporterGUI:
                     bufsize=1
                 )
                 
-                # è¯»å–è¾“å‡º
+                # ¶ÁÈ¡Êä³ö
                 notes_count = 0
                 estimated_size = 0
                 validation_success = False
@@ -545,43 +545,43 @@ class XiaomiNoteExporterGUI:
                         self.add_log(line)
                         detailed_output.append(line)
                         
-                        # è§£æè¾“å‡ºï¼Œå¯»æ‰¾éªŒè¯ç»“æœ
-                        if "ç™»å½•çŠ¶æ€æ£€æŸ¥æˆåŠŸ" in line:
+                        # ½âÎöÊä³ö£¬Ñ°ÕÒÑéÖ¤½á¹û
+                        if "µÇÂ¼×´Ì¬¼ì²é³É¹¦" in line:
                             validation_success = True
-                        elif "å…±è·å–åˆ°" in line:
-                            # æå–ç¬”è®°æ•°é‡ - éªŒè¯æ¨¡å¼çš„è¾“å‡ºæ ¼å¼
-                            match = re.search(r'å…±è·å–åˆ° (\d+) æ¡ç¬”è®°', line)
+                        elif "¹²»ñÈ¡µ½" in line:
+                            # ÌáÈ¡±Ê¼ÇÊıÁ¿ - ÑéÖ¤Ä£Ê½µÄÊä³ö¸ñÊ½
+                            match = re.search(r'¹²»ñÈ¡µ½ (\d+) Ìõ±Ê¼Ç', line)
                             if match:
                                 notes_count = int(match.group(1))
-                        elif "ä¼°ç®—å®¹é‡" in line:
-                            # æå–ä¼°ç®—å®¹é‡
-                            match = re.search(r'ä¼°ç®—å®¹é‡: ([\d.]+[KMGT]B?)', line)
+                        elif "¹ÀËãÈİÁ¿" in line:
+                            # ÌáÈ¡¹ÀËãÈİÁ¿
+                            match = re.search(r'¹ÀËãÈİÁ¿: ([\d.]+[KMGT]B?)', line)
                             if match:
                                 estimated_size = match.group(1)
-                        elif "ä¼°ç®—æ€»å®¹é‡" in line:
-                            # æå–ä¼°ç®—å®¹é‡ - éªŒè¯æ¨¡å¼çš„è¾“å‡ºæ ¼å¼
-                            match = re.search(r'ä¼°ç®—æ€»å®¹é‡: ([\d.]+) (KB|MB|GB|TB)', line)
+                        elif "¹ÀËã×ÜÈİÁ¿" in line:
+                            # ÌáÈ¡¹ÀËãÈİÁ¿ - ÑéÖ¤Ä£Ê½µÄÊä³ö¸ñÊ½
+                            match = re.search(r'¹ÀËã×ÜÈİÁ¿: ([\d.]+) (KB|MB|GB|TB)', line)
                             if match:
                                 estimated_size = f"{match.group(1)}{match.group(2)}"
                 
-                # æ˜¾ç¤ºè¯¦ç»†çš„è¾“å‡ºä¿¡æ¯ï¼Œä¾¿äºè°ƒè¯•
+                # ÏÔÊ¾ÏêÏ¸µÄÊä³öĞÅÏ¢£¬±ãÓÚµ÷ÊÔ
                 if not validation_success:
-                    self.add_log("\n=== éªŒè¯å¤±è´¥è¯¦ç»†ä¿¡æ¯ ===")
+                    self.add_log("\n=== ÑéÖ¤Ê§°ÜÏêÏ¸ĞÅÏ¢ ===")
                     for line in detailed_output:
                         self.add_log(line)
-                    self.add_log("=== éªŒè¯å¤±è´¥è¯¦ç»†ä¿¡æ¯ç»“æŸ ===")
+                    self.add_log("=== ÑéÖ¤Ê§°ÜÏêÏ¸ĞÅÏ¢½áÊø ===")
                 
                 process.wait()
                 
                 if validation_success and notes_count > 0:
-                    # è®¡ç®—å»ºè®®çš„å¯¼å‡ºæ¡æ•°
+                    # ¼ÆËã½¨ÒéµÄµ¼³öÌõÊı
                     suggested_chunk_size = 50
                     if estimated_size:
-                        # æ ¹æ®å®¹é‡è°ƒæ•´å»ºè®®æ¡æ•°
+                        # ¸ù¾İÈİÁ¿µ÷Õû½¨ÒéÌõÊı
                         size_value = float(estimated_size[:-2])
                         size_unit = estimated_size[-2:].upper()
                         
-                        # è½¬æ¢ä¸ºMB
+                        # ×ª»»ÎªMB
                         if size_unit == 'KB':
                             size_in_mb = size_value / 1024
                         elif size_unit == 'MB':
@@ -593,70 +593,70 @@ class XiaomiNoteExporterGUI:
                         else:
                             size_in_mb = size_value
                         
-                        # æ ¹æ®å®¹é‡è°ƒæ•´å»ºè®®çš„å¯¼å‡ºæ¡æ•°
-                        if size_in_mb > 5000:  # å¤§äº5GB
+                        # ¸ù¾İÈİÁ¿µ÷Õû½¨ÒéµÄµ¼³öÌõÊı
+                        if size_in_mb > 5000:  # ´óÓÚ5GB
                             suggested_chunk_size = 20
-                        elif size_in_mb > 3000:  # å¤§äº3GB
+                        elif size_in_mb > 3000:  # ´óÓÚ3GB
                             suggested_chunk_size = 30
-                        elif size_in_mb > 1000:  # å¤§äº1GB
+                        elif size_in_mb > 1000:  # ´óÓÚ1GB
                             suggested_chunk_size = 40
                         else:
-                            suggested_chunk_size = 50  # å°äºç­‰äº1GBï¼Œå»ºè®®50æ¡
+                            suggested_chunk_size = 50  # Ğ¡ÓÚµÈÓÚ1GB£¬½¨Òé50Ìõ
                     
-                    # æ›´æ–°UIï¼Œæ·»åŠ å®é™…å®¹é‡è¯´æ˜
-                    self.capacity_result_var.set(f"Cookiesæœ‰æ•ˆï¼Œå…± {notes_count} æ¡ç¬”è®°ï¼Œä¼°ç®—å®¹é‡: {estimated_size} (å®é™…å®¹é‡ä»¥å¯¼å‡ºç¬”è®°çš„å®¹é‡ä¸ºå‡†)")
+                    # ¸üĞÂUI£¬Ìí¼ÓÊµ¼ÊÈİÁ¿ËµÃ÷
+                    self.capacity_result_var.set(f"CookiesÓĞĞ§£¬¹² {notes_count} Ìõ±Ê¼Ç£¬¹ÀËãÈİÁ¿: {estimated_size} (Êµ¼ÊÈİÁ¿ÒÔµ¼³ö±Ê¼ÇµÄÈİÁ¿Îª×¼)")
                     
-                    # å¯ç”¨å¯¼å‡ºé…ç½®
+                    # ÆôÓÃµ¼³öÅäÖÃ
                     self.chunk_size_combo.set(str(suggested_chunk_size))
                     self.chunk_size_combo.config(state="readonly")
                     
-                    # å¯ç”¨å¯¼å‡ºæŒ‰é’®
+                    # ÆôÓÃµ¼³ö°´Å¥
                     self.export_button.config(state=tk.NORMAL)
                     
-                    self.add_log(f"CookieséªŒè¯æˆåŠŸï¼Œå»ºè®®æ¯æ‰¹å¯¼å‡º {suggested_chunk_size} æ¡ç¬”è®°")
+                    self.add_log(f"CookiesÑéÖ¤³É¹¦£¬½¨ÒéÃ¿Åúµ¼³ö {suggested_chunk_size} Ìõ±Ê¼Ç")
                 else:
-                    self.capacity_result_var.set("Cookiesæ— æ•ˆæˆ–æ— æ³•è·å–ç¬”è®°ä¿¡æ¯")
-                    messagebox.showerror("éªŒè¯å¤±è´¥", "Cookiesæ— æ•ˆæˆ–æ— æ³•è·å–ç¬”è®°ä¿¡æ¯ï¼Œè¯·æ£€æŸ¥Cookiesæ˜¯å¦æ­£ç¡®")
+                    self.capacity_result_var.set("CookiesÎŞĞ§»òÎŞ·¨»ñÈ¡±Ê¼ÇĞÅÏ¢")
+                    messagebox.showerror("ÑéÖ¤Ê§°Ü", "CookiesÎŞĞ§»òÎŞ·¨»ñÈ¡±Ê¼ÇĞÅÏ¢£¬Çë¼ì²éCookiesÊÇ·ñÕıÈ·")
         except Exception as e:
-            self.add_log(f"éªŒè¯è¿‡ç¨‹ä¸­å‘ç”Ÿé”™è¯¯: {e}")
-            self.capacity_result_var.set(f"éªŒè¯å¤±è´¥: {str(e)}")
-            messagebox.showerror("éªŒè¯å¤±è´¥", f"éªŒè¯è¿‡ç¨‹ä¸­å‘ç”Ÿé”™è¯¯: {str(e)}")
+            self.add_log(f"ÑéÖ¤¹ı³ÌÖĞ·¢Éú´íÎó: {e}")
+            self.capacity_result_var.set(f"ÑéÖ¤Ê§°Ü: {str(e)}")
+            messagebox.showerror("ÑéÖ¤Ê§°Ü", f"ÑéÖ¤¹ı³ÌÖĞ·¢Éú´íÎó: {str(e)}")
         finally:
-            # æ¢å¤éªŒè¯æŒ‰é’®çŠ¶æ€
+            # »Ö¸´ÑéÖ¤°´Å¥×´Ì¬
             self.validate_button.config(state=tk.NORMAL)
     
     def clear_fields(self):
-        """æ¸…ç©ºè¾“å…¥å­—æ®µ"""
+        """Çå¿ÕÊäÈë×Ö¶Î"""
         self.cookies_text.delete(1.0, tk.END)
         self.capacity_result_var.set("")
-        # ç¦ç”¨å¯¼å‡ºé…ç½®å’ŒæŒ‰é’®
+        # ½ûÓÃµ¼³öÅäÖÃºÍ°´Å¥
         self.chunk_size_combo.config(state="disabled")
         self.export_button.config(state="disabled")
-        self.add_log("è¾“å…¥å­—æ®µå·²æ¸…ç©º")
+        self.add_log("ÊäÈë×Ö¶ÎÒÑÇå¿Õ")
     
     def on_chunk_size_change(self, event):
-        """å¯¼å‡ºæ¡æ•°å˜åŒ–äº‹ä»¶"""
+        """µ¼³öÌõÊı±ä»¯ÊÂ¼ş"""
         try:
             self.selected_chunk_size = int(self.chunk_size_var.get())
-            self.add_log(f"å·²è®¾ç½®æ¯æ‰¹å¯¼å‡ºæ¡æ•°: {self.selected_chunk_size}")
+            self.add_log(f"ÒÑÉèÖÃÃ¿Åúµ¼³öÌõÊı: {self.selected_chunk_size}")
             
-            # æ›´æ–°é…ç½®
+            # ¸üĞÂÅäÖÃ
             self.default_config['export']['chunk_size'] = self.selected_chunk_size
             self.save_config()
             
         except ValueError:
-            self.add_log("æ— æ•ˆçš„å¯¼å‡ºæ¡æ•°")
+            self.add_log("ÎŞĞ§µÄµ¼³öÌõÊı")
 
 
 def main():
-    """ä¸»å‡½æ•°"""
+    """Ö÷º¯Êı"""
     root = tk.Tk()
     app = XiaomiNoteExporterGUI(root)
     
-    # è®¾ç½®çª—å£å…³é—­äº‹ä»¶
+    # ÉèÖÃ´°¿Ú¹Ø±ÕÊÂ¼ş
     def on_closing():
         if app.is_exporting:
-            if messagebox.askokcancel("ç¡®è®¤å…³é—­", "å¯¼å‡ºæ­£åœ¨è¿›è¡Œä¸­ï¼Œç¡®å®šè¦å…³é—­å—ï¼Ÿ"):
+            if messagebox.askokcancel("È·ÈÏ¹Ø±Õ", "µ¼³öÕıÔÚ½øĞĞÖĞ£¬È·¶¨Òª¹Ø±ÕÂğ£¿"):
                 app.stop_export()
                 root.destroy()
         else:
